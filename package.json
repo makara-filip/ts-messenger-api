@@ -25,8 +25,18 @@
 		"url": "https://github.com/makiprogrammer/ts-messenger-api/issues"
 	},
 	"homepage": "https://github.com/makiprogrammer/ts-messenger-api#readme",
-	"dependencies": {},
+	"dependencies": {
+		"bluebird": "^3.7.2",
+		"cheerio": "^1.0.0-rc.5",
+		"npmlog": "^4.1.2",
+		"request": "^2.88.2",
+		"tough-cookie": "^4.0.0"
+	},
 	"devDependencies": {
+		"@types/bluebird": "^3.5.33",
+		"@types/npmlog": "^4.1.2",
+		"@types/request": "^2.48.5",
+		"@types/tough-cookie": "^4.0.0",
 		"@typescript-eslint/eslint-plugin": "^4.13.0",
 		"@typescript-eslint/parser": "^4.13.0",
 		"eslint": "^7.17.0",

@@ -1,8 +1,10 @@
-interface reqOptions {
-	userAgent: string;
-}
+import { ApiOptions } from './types';
+import * as r from 'request';
+import {promisify} from 'bluebird';
+import { Response } from 'request';
+let request = promisify(r.defaults({ jar: true }), {multiArgs: true}))
 
-export function getHeaders(url: string, options: reqOptions) {
+export function getHeaders(url: string, options: ApiOptions) {
 	return {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Referer: 'https://www.facebook.com/',
@@ -21,7 +23,7 @@ export function isReadableStream(obj: any): boolean {
 	);
 }
 
-export function get(url: string, jar, qs, options: reqOptions) {
+export function get(url: string, jar, qs, options: ApiOptions) {
 	// I'm still confused about this
 	if (getType(qs) === 'Object') {
 		for (let prop in qs) {
@@ -45,7 +47,7 @@ export function get(url: string, jar, qs, options: reqOptions) {
 	});
 }
 
-export function post(url: string, jar, form, options: reqOptions) {
+export function post(url: string, jar, form, options: ApiOptions) {
 	let op = {
 		headers: getHeaders(url, options),
 		timeout: 60000,
@@ -61,7 +63,7 @@ export function post(url: string, jar, form, options: reqOptions) {
 	});
 }
 
-export function postFormData(url: string, jar, form, qs, options: reqOptions) {
+export function postFormData(url: string, jar, form, qs, options: ApiOptions) {
 	var headers = getHeaders(url, options);
 	headers['Content-Type'] = 'multipart/form-data';
 	let op = {
@@ -1160,8 +1162,9 @@ export function parseAndCheckLogin(ctx, defaultFuncs, retryCount = 0) {
 	};
 }
 
+/** Returns a function with a res attribute, which saves received cookies to provided jar and returns `res` */
 export function saveCookies(jar) {
-	return function (res) {
+	return function (res: Response) {
 		const cookies = res.headers['set-cookie'] || [];
 		cookies.forEach(function (c) {
 			if (c.indexOf('.facebook.com') > -1) {
