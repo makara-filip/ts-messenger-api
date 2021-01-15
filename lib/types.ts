@@ -63,4 +63,13 @@ export interface RequestForm {
 	[index: string]: string;
 }
 
+export interface MessHeaders {
+	'Content-Type'?: string;
+	Referer?: string;
+	Host?: string;
+	Origin?: string;
+	'User-Agent'?: string;
+	Connection?: string;
+}
+
 export type AppState = Cookie[];

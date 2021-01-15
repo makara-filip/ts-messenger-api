@@ -1,11 +1,12 @@
-import { ApiCtx, ApiOptions, Dfs } from './types';
+import { ApiCtx, ApiOptions, Dfs, MessHeaders, RequestForm } from './types';
 import * as r from 'request';
-import { promisify } from 'bluebird';
+import Bluebird, { promisify } from 'bluebird';
 import { Response } from 'request';
 import Jar from './jar';
-let request = promisify(r.defaults({ jar: true }), { multiArgs: true });
+import stream from 'stream';
+const request = promisify(r.defaults({ jar: true }), { multiArgs: true });
 
-export function getHeaders(url: string, options: ApiOptions) {
+export function getHeaders(url: string, options: ApiOptions): MessHeaders {
 	return {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Referer: 'https://www.facebook.com/',
@@ -16,24 +17,28 @@ export function getHeaders(url: string, options: ApiOptions) {
 	};
 }
 
+// TODO: May not be right
 export function isReadableStream(obj: any): boolean {
 	return (
 		obj instanceof stream.Stream &&
-		(getType(obj._read) === 'Function' || getType(obj._read) === 'AsyncFunction') &&
-		getType(obj._readableState) === 'Object'
+		(getType((obj as stream.Readable)._read) === 'Function' ||
+			getType((obj as stream.Readable)._read) === 'AsyncFunction')
 	);
 }
 
-export function get(url: string, jar, qs, options: ApiOptions) {
+/**
+ * @param qs This is ussually null
+ */
+export function get(url: string, jar: Jar, qs: Record<string, unknown>, options: ApiOptions): Bluebird<r.Response> {
 	// I'm still confused about this
 	if (getType(qs) === 'Object') {
-		for (let prop in qs) {
-			if (qs.hasOwnProperty(prop) && getType(qs[prop]) === 'Object') {
+		for (const prop in qs) {
+			if (Object.prototype.hasOwnProperty.call(qs, prop) && getType(qs[prop]) === 'Object') {
 				qs[prop] = JSON.stringify(qs[prop]);
 			}
 		}
 	}
-	let op = {
+	const op = {
 		headers: getHeaders(url, options),
 		timeout: 60000,
 		qs: qs,
@@ -43,13 +48,12 @@ export function get(url: string, jar, qs, options: ApiOptions) {
 		gzip: true
 	};
 
-	return request(op).then(function (res) {
-		return res[0];
-	});
+	// TODO: This was modified
+	return request(op);
 }
 
-export function post(url: string, jar, form, options: ApiOptions) {
-	let op = {
+export function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions): Bluebird<r.Response> {
+	const op = {
 		headers: getHeaders(url, options),
 		timeout: 60000,
 		url: url,
@@ -59,15 +63,20 @@ export function post(url: string, jar, form, options: ApiOptions) {
 		gzip: true
 	};
 
-	return request(op).then(function (res) {
-		return res[0];
-	});
+	// TODO: This was modified
+	return request(op);
 }
 
-export function postFormData(url: string, jar, form, qs, options: ApiOptions) {
-	var headers = getHeaders(url, options);
+export function postFormData(
+	url: string,
+	jar: Jar,
+	form: RequestForm,
+	qs: Record<string, unknown>,
+	options: ApiOptions
+) {
+	const headers = getHeaders(url, options);
 	headers['Content-Type'] = 'multipart/form-data';
-	let op = {
+	const op = {
 		headers: headers,
 		timeout: 60000,
 		url: url,
@@ -78,24 +87,20 @@ export function postFormData(url: string, jar, form, qs, options: ApiOptions) {
 		gzip: true
 	};
 
-	return request(op).then(function (res) {
-		return res[0];
-	});
+	// TODO: This was modified
+	return request(op);
 }
 
 /** Appends zeroes to the beggining of `val` until it reaches length of `len` */
-export function padZeros(val: any, len = 2): string {
+export function padZeros(val: string, len = 2): string {
 	val = String(val);
 	while (val.length < len) val = '0' + val;
 	return val;
 }
 
 //TODO: Determin the type of `clientID`
-export function generateThreadingID(clientID: any) {
-	var k = Date.now();
-	var l = Math.floor(Math.random() * 4294967295);
-	var m = clientID;
-	return '<' + k + ':' + l + '-' + m + '@mail.projektitan.com>';
+export function generateThreadingID(clientID: string): string {
+	return `<${Date.now()}:${Math.floor(Math.random() * 4294967295)}-${clientID}@mail.projektitan.com>`;
 }
 
 export function binaryToDecimal(data: string): string {
@@ -120,10 +125,10 @@ export function binaryToDecimal(data: string): string {
 }
 
 export function generateOfflineThreadingID(): string {
-	let now = Date.now();
-	let rand = Math.floor(Math.random() * 4294967295);
-	let str = ('0000000000000000000000' + rand.toString(2)).slice(-22);
-	let msgs = now.toString(2) + str;
+	const now = Date.now();
+	const rand = Math.floor(Math.random() * 4294967295);
+	const str = ('0000000000000000000000' + rand.toString(2)).slice(-22);
+	const msgs = now.toString(2) + str;
 	return binaryToDecimal(msgs);
 }
 
@@ -161,8 +166,8 @@ const j = {
 		'%2c%22sb%22%3a1%2c%22t%22%3a%5b%5d%2c%22f%22%3anull%2c%22uct%22%3a0%2c%22s%22%3a0%2c%22blo%22%3a0%7d%2c%22bl%22%3a%7b%22ac%22%3a'
 };
 (function () {
-	let l = [];
-	for (var m in j) {
+	const l = [];
+	for (const m in j) {
 		i[j[m]] = m;
 		l.push(j[m]);
 	}
