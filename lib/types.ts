@@ -1,9 +1,12 @@
+import Bluebird from 'bluebird';
 import { LogLevels } from 'npmlog';
 import { Cookie } from 'tough-cookie';
+import Jar from './jar';
 
 export interface Credentials {
 	email: string;
 	password: string;
+	appState: AppState;
 }
 
 export interface ApiOptions {
@@ -46,6 +49,18 @@ export interface ApiCtx {
 	mqttClient: any;
 	lastSeqId: number;
 	syncToken: any;
+}
+
+/** Default functions */
+export interface Dfs {
+	get: (url: string, jar: Jar, qs: any) => Bluebird<any>;
+	post: (url: string, jar: Jar, form: any) => Bluebird<any>;
+	postFormData: (url: string, jar: Jar, form: any, qs: any) => Bluebird<any>;
+}
+
+export interface RequestForm {
+	client: string;
+	[index: string]: string;
 }
 
 export type AppState = Cookie[];

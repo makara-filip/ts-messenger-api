@@ -1,8 +1,9 @@
-import { ApiOptions } from './types';
+import { ApiCtx, ApiOptions, Dfs } from './types';
 import * as r from 'request';
-import {promisify} from 'bluebird';
+import { promisify } from 'bluebird';
 import { Response } from 'request';
-let request = promisify(r.defaults({ jar: true }), {multiArgs: true}))
+import Jar from './jar';
+let request = promisify(r.defaults({ jar: true }), { multiArgs: true });
 
 export function getHeaders(url: string, options: ApiOptions) {
 	return {
@@ -971,7 +972,7 @@ export function generateTimestampRelative(): string {
 	return d.getHours() + ':' + padZeros(d.getMinutes());
 }
 
-export function makeDefaults(html, userID, ctx) {
+export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 	let reqCounter = 1;
 	const fb_dtsg = getFrom(html, 'name="fb_dtsg" value="', '"');
 
@@ -1042,15 +1043,15 @@ export function makeDefaults(html, userID, ctx) {
 		return newObj;
 	}
 
-	function postWithDefaults(url, jar, form) {
+	function postWithDefaults(url: string, jar: Jar, form) {
 		return post(url, jar, mergeWithDefaults(form), ctx.globalOptions);
 	}
 
-	function getWithDefaults(url, jar, qs) {
+	function getWithDefaults(url: string, jar: Jar, qs) {
 		return get(url, jar, mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
-	function postFormDataWithDefault(url, jar, form, qs) {
+	function postFormDataWithDefault(url: string, jar: Jar, form, qs) {
 		return postFormData(url, jar, mergeWithDefaults(form), mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
