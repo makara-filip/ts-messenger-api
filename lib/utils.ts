@@ -1,9 +1,10 @@
 import { ApiCtx, ApiOptions, Dfs, MessHeaders, RequestForm } from './types';
-import * as r from 'request';
+import r from 'request';
 import Bluebird, { promisify } from 'bluebird';
 import { Response } from 'request';
 import Jar from './jar';
 import stream from 'stream';
+import log from 'npmlog';
 const request = promisify(r.defaults({ jar: true }), { multiArgs: true });
 
 export function getHeaders(url: string, options: ApiOptions): MessHeaders {
@@ -29,7 +30,12 @@ export function isReadableStream(obj: any): boolean {
 /**
  * @param qs This is ussually null
  */
-export function get(url: string, jar: Jar, qs: Record<string, unknown>, options: ApiOptions): Bluebird<r.Response> {
+export function get(
+	url: string,
+	jar: Jar | null,
+	qs: Record<string, unknown> | null,
+	options: ApiOptions
+): Bluebird<r.Response> {
 	// I'm still confused about this
 	if (getType(qs) === 'Object') {
 		for (const prop in qs) {
@@ -44,12 +50,14 @@ export function get(url: string, jar: Jar, qs: Record<string, unknown>, options:
 		qs: qs,
 		url: url,
 		method: 'GET',
-		jar: jar,
+		jar: jar as Jar,
 		gzip: true
 	};
 
 	// TODO: This was modified
-	return request(op);
+	return request(op).then(function (res: any) {
+		return res[0];
+	});
 }
 
 export function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions): Bluebird<r.Response> {
@@ -64,7 +72,9 @@ export function post(url: string, jar: Jar, form: RequestForm, options: ApiOptio
 	};
 
 	// TODO: This was modified
-	return request(op);
+	return request(op).then(function (res: any) {
+		return res[0];
+	});
 }
 
 export function postFormData(
@@ -88,7 +98,9 @@ export function postFormData(
 	};
 
 	// TODO: This was modified
-	return request(op);
+	return request(op).then(function (res: any) {
+		return res[0];
+	});
 }
 
 /** Appends zeroes to the beggining of `val` until it reaches length of `len` */
@@ -134,8 +146,8 @@ export function generateOfflineThreadingID(): string {
 
 //TODO: Figure out what the hell this does
 let h: RegExp;
-const i = {};
-const j = {
+const i: { [index: string]: string } = {};
+const j: { [index: string]: string } = {
 	_: '%',
 	A: '%2',
 	B: '000',
@@ -165,6 +177,7 @@ const j = {
 	Z:
 		'%2c%22sb%22%3a1%2c%22t%22%3a%5b%5d%2c%22f%22%3anull%2c%22uct%22%3a0%2c%22s%22%3a0%2c%22blo%22%3a0%7d%2c%22bl%22%3a%7b%22ac%22%3a'
 };
+// Set `i` as `j` with swapped keys and values
 (function () {
 	const l = [];
 	for (const m in j) {
@@ -175,18 +188,14 @@ const j = {
 	h = new RegExp(l.join('|'), 'g');
 })();
 
-export function presenceEncode(str: string) {
+export function presenceEncode(str: string): string {
 	return encodeURIComponent(str)
-		.replace(/([_A-Z])|%../g, function (m, n) {
-			return n ? '%' + n.charCodeAt(0).toString(16) : m;
-		})
+		.replace(/([_A-Z])|%../g, (m, n) => (n ? '%' + n.charCodeAt(0).toString(16) : m))
 		.toLowerCase()
-		.replace(h, function (m) {
-			return i[m];
-		});
+		.replace(h, m => i[m]);
 }
 
-export function presenceDecode(str: string) {
+export function presenceDecode(str: string): string {
 	return decodeURIComponent(
 		str.replace(/[_A-Z]/g, function (m) {
 			return j[m];
@@ -195,15 +204,15 @@ export function presenceDecode(str: string) {
 }
 
 //TODO: Determin the type of `userID`
-export function generatePresence(userID) {
-	let time = Date.now();
+export function generatePresence(userID: string): string {
+	const time = Date.now();
 	return (
 		'E' +
 		presenceEncode(
 			JSON.stringify({
 				v: 3,
-				//TODO: This probably doesn't need parseInt
-				time: parseInt(time / 1000, 10),
+				//TODO: This was modified. (This probably doesn't need parseInt)
+				time: time / 1000,
 				user: userID,
 				state: {
 					ut: 0,
@@ -220,8 +229,8 @@ export function generatePresence(userID) {
 	);
 }
 
-export function generateAccessiblityCookie() {
-	let time = Date.now();
+export function generateAccessiblityCookie(): string {
+	const time = Date.now();
 	return encodeURIComponent(
 		JSON.stringify({
 			sr: 0,
@@ -236,7 +245,7 @@ export function generateAccessiblityCookie() {
 	);
 }
 
-export function getGUID() {
+export function getGUID(): string {
 	let sectionLength = Date.now();
 	const id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
 		const r = Math.floor((sectionLength + Math.random() * 16) % 16);
@@ -313,9 +322,9 @@ export interface AnimatedImageAttachment extends Attachment, Preview {
 	name: string; // @Legacy
 	facebookUrl: string; // @Legacy
 	thumbnailUrl: string; // @Legacy
-	mimeType: string; // @Legacy
+	mimeType?: string; // @Legacy
 	rawGifImage: unknown; // @Legacy
-	rawWebpImage: unknown; // @Legacy
+	rawWebpImage?: unknown; // @Legacy
 	animatedGifUrl: string; // @Legacy
 	animatedGifPreviewUrl: string; // @Legacy
 	animatedWebpUrl: string; // @Legacy
@@ -337,7 +346,9 @@ export interface ShareAttachment extends Attachment {
 	subattachments: unknown;
 	properties: unknown;
 
-	animatedImageSize: number; // @Legacy
+	playableUrl?: string;
+
+	animatedImageSize?: number; // @Legacy
 	facebookUrl: string; // @Legacy
 	target: unknown; // @Legacy
 	styleList: unknown; // @Legacy
@@ -365,7 +376,24 @@ export interface AudioAttachment extends Attachment {
 	isVoiceMail: boolean;
 }
 
-export function _formatAttachment(attachment1, attachment2) {
+export interface AttachmentError {
+	type: 'error';
+	attachment1: any;
+	attachment2: any;
+}
+
+export function _formatAttachment(
+	attachment1: any,
+	attachment2?: any
+):
+	| StickerAttachment
+	| FileAttachment
+	| PhotoAttachment
+	| AnimatedImageAttachment
+	| ShareAttachment
+	| VideoAttachment
+	| AudioAttachment
+	| AttachmentError {
 	// TODO: THIS IS REALLY BAD
 	// This is an attempt at fixing Facebook's inconsistencies. Sometimes they give us
 	// two attachment objects, but sometimes only one. They each contain part of the
@@ -640,7 +668,7 @@ export function _formatAttachment(attachment1, attachment2) {
 				playableUrl: blob.story_attachment.media == null ? null : blob.story_attachment.media.playable_url,
 
 				subattachments: blob.story_attachment.subattachments,
-				properties: blob.story_attachment.properties.reduce(function (obj, cur) {
+				properties: (blob.story_attachment.properties as any[]).reduce((obj, cur) => {
 					obj[cur.key] = cur.value.text;
 					return obj;
 				}, {}),
@@ -676,10 +704,10 @@ export function _formatAttachment(attachment1, attachment2) {
 	}
 }
 
-export function formatAttachment(attachments, attachmentIds, attachmentMap, shareMap) {
+export function formatAttachment(attachments: any[], attachmentIds: any, attachmentMap: any, shareMap: any): any {
 	attachmentMap = shareMap || attachmentMap;
 	return attachments
-		? attachments.map(function (val, i) {
+		? attachments.map((val, i) => {
 				if (!attachmentMap || !attachmentIds || !attachmentMap[attachmentIds[i]]) {
 					return _formatAttachment(val);
 				}
@@ -688,14 +716,15 @@ export function formatAttachment(attachments, attachmentIds, attachmentMap, shar
 		: [];
 }
 
-export function formatDeltaMessage(m) {
-	let md = m.delta.messageMetadata;
+export function formatDeltaMessage(m: any) {
+	const md = m.delta.messageMetadata;
 
-	let mdata = m.delta.data === undefined ? [] : m.delta.data.prng === undefined ? [] : JSON.parse(m.delta.data.prng);
-	let m_id = mdata.map(u => u.i);
-	let m_offset = mdata.map(u => u.o);
-	let m_length = mdata.map(u => u.l);
-	let mentions = {};
+	const mdata: any[] =
+		m.delta.data === undefined ? [] : m.delta.data.prng === undefined ? [] : JSON.parse(m.delta.data.prng);
+	const m_id = mdata.map(u => u.i);
+	const m_offset = mdata.map(u => u.o);
+	const m_length = mdata.map(u => u.l);
+	const mentions: { [index: string]: string } = {};
 	for (let i = 0; i < m_id.length; i++) {
 		mentions[m_id[i]] = m.delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
 	}
@@ -706,7 +735,7 @@ export function formatDeltaMessage(m) {
 		body: m.delta.body || '',
 		threadID: formatID((md.threadKey.threadFbId || md.threadKey.otherUserFbId).toString()),
 		messageID: md.messageId,
-		attachments: (m.delta.attachments || []).map(v => _formatAttachment(v)),
+		attachments: ((m.delta.attachments as any[]) || []).map(v => _formatAttachment(v)),
 		mentions: mentions,
 		timestamp: md.timestamp,
 		isGroup: !!md.threadKey.threadFbId
@@ -744,7 +773,7 @@ export interface FormattedMessage {
 	isGroup?: boolean;
 }
 
-function formatMessage(m): FormattedMessage {
+function formatMessage(m: any): FormattedMessage {
 	const originalMessage = m.message ? m.message : m;
 	const obj: FormattedMessage = {
 		type: 'message',
@@ -754,9 +783,7 @@ function formatMessage(m): FormattedMessage {
 			? originalMessage.group_thread_info.participant_names
 			: [originalMessage.sender_name.split(' ')[0]],
 		participantIDs: originalMessage.group_thread_info
-			? originalMessage.group_thread_info.participant_ids.map(function (v) {
-					return formatID(v.toString());
-			  })
+			? (originalMessage.group_thread_info.participant_ids as any[]).map(v => formatID(v.toString()))
 			: [formatID(originalMessage.sender_fbid)],
 		body: originalMessage.body || '',
 		threadID: formatID((originalMessage.thread_fbid || originalMessage.other_user_fbid).toString()),
@@ -788,7 +815,7 @@ function formatMessage(m): FormattedMessage {
 	return obj;
 }
 
-export function formatEvent(m) {
+export function formatEvent(m: any) {
 	const originalMessage = m.message ? m.message : m;
 	let logMessageType = originalMessage.log_message_type;
 	let logMessageData;
@@ -808,7 +835,7 @@ export function formatEvent(m) {
 }
 
 export function formatHistoryMessage(
-	m
+	m: any
 ):
 	| FormattedMessage
 	| (FormattedMessage & { type: string; logMessageType: any; logMessageData: any; logMessageBody: any }) {
@@ -821,7 +848,7 @@ export function formatHistoryMessage(
 }
 
 // Get a more readable message type for AdminTextMessages
-export function getAdminTextMessageType(type) {
+export function getAdminTextMessageType(type: string): string {
 	switch (type) {
 		case 'change_thread_theme':
 			return 'log:thread-color';
@@ -834,7 +861,7 @@ export function getAdminTextMessageType(type) {
 	}
 }
 
-export function formatDeltaEvent(m) {
+export function formatDeltaEvent(m: any) {
 	let logMessageType;
 	let logMessageData;
 
@@ -876,20 +903,21 @@ export function formatDeltaEvent(m) {
 	};
 }
 
-export function formatTyp(event) {
+export function formatTyp(event: any) {
 	return {
 		isTyping: !!event.st,
 		from: event.from.toString(),
 		threadID: formatID((event.to || event.thread_fbid || event.from).toString()),
 		// When receiving typ indication from mobile, `from_mobile` isn't set.
 		// If it is, we just use that value.
+		// eslint-disable-next-line no-prototype-builtins
 		fromMobile: event.hasOwnProperty('from_mobile') ? event.from_mobile : true,
 		userID: (event.realtime_viewer_fbid || event.from).toString(),
 		type: 'typ'
 	};
 }
 
-export function formatDeltaReadReceipt(delta) {
+export function formatDeltaReadReceipt(delta: any) {
 	// otherUserFbId seems to be used as both the readerID and the threadID in a 1-1 chat.
 	// In a group chat actorFbId is used for the reader and threadFbId for the thread.
 	return {
@@ -900,7 +928,7 @@ export function formatDeltaReadReceipt(delta) {
 	};
 }
 
-export function formatReadReceipt(event) {
+export function formatReadReceipt(event: any) {
 	return {
 		reader: event.reader.toString(),
 		time: event.time,
@@ -909,7 +937,7 @@ export function formatReadReceipt(event) {
 	};
 }
 
-export function formatRead(event) {
+export function formatRead(event: any) {
 	return {
 		threadID: formatID(
 			((event.chat_ids && event.chat_ids[0]) || (event.thread_fbids && event.thread_fbids[0])).toString()
@@ -949,19 +977,15 @@ export function makeParsable(html: string): string | string[] {
 	return '[' + maybeMultipleObjects.join('},{') + ']';
 }
 
-export function arrToForm(form) {
+export function arrToForm(form: any) {
 	return arrayToObject(
 		form,
-		function (v) {
-			return v.name;
-		},
-		function (v) {
-			return v.val;
-		}
+		(v: any) => v.name,
+		(v: any) => v.val
 	);
 }
 
-export function arrayToObject(arr: any[], getKey, getValue) {
+export function arrayToObject(arr: any[], getKey: (val: any) => any, getValue: (val: any) => any): any {
 	return arr.reduce(function (acc, val) {
 		acc[getKey(val)] = getValue(val);
 		return acc;
@@ -974,7 +998,7 @@ export function getSignatureID(): string {
 
 export function generateTimestampRelative(): string {
 	const d = new Date();
-	return d.getHours() + ':' + padZeros(d.getMinutes());
+	return d.getHours() + ':' + padZeros(String(d.getMinutes()));
 }
 
 export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
@@ -1000,9 +1024,9 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 	for (let i = 0; i < fb_dtsg.length; i++) {
 		ttstamp += fb_dtsg.charCodeAt(i);
 	}
-	let revision = getFrom(html, 'revision":', ',');
+	const revision = getFrom(html, 'revision":', ',');
 
-	function mergeWithDefaults(obj) {
+	function mergeWithDefaults(obj?: any) {
 		// @TODO This is missing a key called __dyn.
 		// After some investigation it seems like __dyn is some sort of set that FB
 		// calls BitMap. It seems like certain responses have a "define" key in the
@@ -1013,7 +1037,7 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 		// So far the API has been working without this.
 		//
 		//              Ben - July 15th 2017
-		const newObj = {
+		const newObj: any = {
 			__user: userID,
 			__req: (reqCounter++).toString(36),
 			__rev: revision,
@@ -1037,7 +1061,8 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 
 		if (!obj) return newObj;
 
-		for (let prop in obj) {
+		for (const prop in obj) {
+			// eslint-disable-next-line no-prototype-builtins
 			if (obj.hasOwnProperty(prop)) {
 				if (!newObj[prop]) {
 					newObj[prop] = obj[prop];
@@ -1048,15 +1073,15 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 		return newObj;
 	}
 
-	function postWithDefaults(url: string, jar: Jar, form) {
+	function postWithDefaults(url: string, jar: Jar, form: RequestForm) {
 		return post(url, jar, mergeWithDefaults(form), ctx.globalOptions);
 	}
 
-	function getWithDefaults(url: string, jar: Jar, qs) {
+	function getWithDefaults(url: string, jar: Jar, qs?: any) {
 		return get(url, jar, mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
-	function postFormDataWithDefault(url: string, jar: Jar, form, qs) {
+	function postFormDataWithDefault(url: string, jar: Jar, form: RequestForm, qs: any) {
 		return postFormData(url, jar, mergeWithDefaults(form), mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
@@ -1067,9 +1092,9 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 	};
 }
 
-export function parseAndCheckLogin(ctx, defaultFuncs, retryCount = 0) {
-	return function (data) {
-		return bluebird.try(function () {
+export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 0) {
+	return function (data: any): Bluebird<any> {
+		return Bluebird.try(function () {
 			log.verbose('parseAndCheckLogin', data.body);
 			if (data.statusCode >= 500 && data.statusCode < 600) {
 				if (retryCount >= 5) {
@@ -1093,15 +1118,13 @@ export function parseAndCheckLogin(ctx, defaultFuncs, retryCount = 0) {
 				);
 				const url = data.request.uri.protocol + '//' + data.request.uri.hostname + data.request.uri.pathname;
 				if (data.request.headers['Content-Type'].split(';')[0] === 'multipart/form-data') {
-					return bluebird
-						.delay(retryTime)
+					return Bluebird.delay(retryTime)
 						.then(function () {
 							return defaultFuncs.postFormData(url, ctx.jar, data.request.formData, {});
 						})
 						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
 				} else {
-					return bluebird
-						.delay(retryTime)
+					return Bluebird.delay(retryTime)
 						.then(function () {
 							return defaultFuncs.post(url, ctx.jar, data.request.formData);
 						})
@@ -1147,7 +1170,7 @@ export function parseAndCheckLogin(ctx, defaultFuncs, retryCount = 0) {
 			// one for the next requests.
 			if (res.jsmods && Array.isArray(res.jsmods.require)) {
 				const arr = res.jsmods.require;
-				for (let i in arr) {
+				for (const i in arr) {
 					if (arr[i][0] === 'DTSG' && arr[i][1] === 'setToken') {
 						ctx.fb_dtsg = arr[i][3][0];
 
@@ -1169,8 +1192,8 @@ export function parseAndCheckLogin(ctx, defaultFuncs, retryCount = 0) {
 }
 
 /** Returns a function with a res attribute, which saves received cookies to provided jar and returns `res` */
-export function saveCookies(jar) {
-	return function (res: Response) {
+export function saveCookies(jar: Jar) {
+	return function (res: Response): Response {
 		const cookies = res.headers['set-cookie'] || [];
 		cookies.forEach(function (c) {
 			if (c.indexOf('.facebook.com') > -1) {
@@ -1187,24 +1210,25 @@ const NUM_TO_MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const NUM_TO_DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function formatDate(date: Date): string {
-	let d = date.getUTCDate();
+	let d: string | number = date.getUTCDate();
+	// TODO: maybe remove `d`
 	d = d >= 10 ? d : '0' + d;
-	let h = date.getUTCHours();
+	let h: string | number = date.getUTCHours();
 	h = h >= 10 ? h : '0' + h;
-	let m = date.getUTCMinutes();
+	let m: string | number = date.getUTCMinutes();
 	m = m >= 10 ? m : '0' + m;
-	let s = date.getUTCSeconds();
+	let s: string | number = date.getUTCSeconds();
 	s = s >= 10 ? s : '0' + s;
 	return `${NUM_TO_DAY[date.getUTCDay()]}, d ${
 		NUM_TO_MONTH[date.getUTCMonth()]
 	} ${date.getUTCFullYear()} ${h}:${m}:${s} GMT`;
 }
 
-export function formatCookie(arr, url: string): string {
+export function formatCookie(arr: string[], url: string): string {
 	return `${arr[0]}=${arr[1]}; Path=${arr[3]}; Domain=${url}.com`;
 }
 
-export function formatThread(data) {
+export function formatThread(data: any) {
 	return {
 		threadID: formatID(data.thread_fbid.toString()),
 		participants: data.participants.map(formatID),
@@ -1240,11 +1264,11 @@ export function formatThread(data) {
 	};
 }
 
-export function getType(obj): string {
+export function getType(obj: any): string {
 	return Object.prototype.toString.call(obj).slice(8, -1);
 }
 
-export function formatProxyPresence(presence, userID: string) {
+export function formatProxyPresence(presence: any, userID: string) {
 	if (presence.lat === undefined || presence.p === undefined) return null;
 	return {
 		type: 'presence',
@@ -1254,7 +1278,7 @@ export function formatProxyPresence(presence, userID: string) {
 	};
 }
 
-export function formatPresence(presence, userID: string) {
+export function formatPresence(presence: any, userID: string) {
 	return {
 		type: 'presence',
 		timestamp: presence.la * 1000,
@@ -1263,14 +1287,14 @@ export function formatPresence(presence, userID: string) {
 	};
 }
 
-export function decodeClientPayload(payload) {
+export function decodeClientPayload(payload: any) {
 	/*
 	Special function which Client using to "encode" clients JSON payload
 	*/
 	return JSON.parse(String.fromCharCode.apply(null, payload));
 }
 
-export function getAppState(jar) {
+export function getAppState(jar: Jar) {
 	return jar
 		.getCookies('https://www.facebook.com')
 		.concat(jar.getCookies('https://facebook.com'))

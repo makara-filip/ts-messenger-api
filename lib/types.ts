@@ -49,11 +49,13 @@ export interface ApiCtx {
 	mqttClient: any;
 	lastSeqId: number;
 	syncToken: any;
+	fb_dtsg?: any;
+	ttstamp?: any;
 }
 
 /** Default functions */
 export interface Dfs {
-	get: (url: string, jar: Jar, qs: any) => Bluebird<any>;
+	get: (url: string, jar: Jar, qs?: any) => Bluebird<any>;
 	post: (url: string, jar: Jar, form: any) => Bluebird<any>;
 	postFormData: (url: string, jar: Jar, form: any, qs: any) => Bluebird<any>;
 }

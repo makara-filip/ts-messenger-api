@@ -5,6 +5,7 @@ import Jar from './lib/jar';
 import cheerio from 'cheerio';
 import { Response } from 'request';
 import Api from './lib/api';
+import Bluebird from 'bluebird';
 
 const defaultLogRecordSize = 100;
 
@@ -176,12 +177,12 @@ function loginHelper(
 	}
 
 	// At the end we call the callback or catch an exception
-	mainPromise
+	(mainPromise as Bluebird<any>)
 		.then(() => {
 			log.info('login', 'Done logging in.');
 			return callback(undefined, api);
 		})
-		.catch(e => {
+		.catch((e: any) => {
 			log.error('login', e.error || e);
 			callback(e);
 		});
@@ -405,7 +406,7 @@ function makeLogin(
 							}
 						});
 				}
-				return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar));
+				return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar)) as any;
 			});
 	};
 }
