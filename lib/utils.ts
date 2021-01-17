@@ -742,7 +742,7 @@ export function formatDeltaMessage(m: any) {
 	};
 }
 
-function formatID(id: string): string {
+export function formatID(id: string): string {
 	if (id != undefined && id != null) {
 		return id.replace(/(fb)?id[:.]/, '');
 	} else {

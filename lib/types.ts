@@ -2,6 +2,7 @@ import Bluebird from 'bluebird';
 import { LogLevels } from 'npmlog';
 import { Cookie } from 'tough-cookie';
 import Jar from './jar';
+import mqtt from 'mqtt';
 
 export interface Credentials {
 	email: string;
@@ -46,7 +47,7 @@ export interface ApiCtx {
 	loggedIn: boolean;
 	access_token: string;
 	clientMutationId: number;
-	mqttClient: any;
+	mqttClient?: mqtt.MqttClient;
 	lastSeqId: number;
 	syncToken: any;
 	fb_dtsg?: any;
@@ -72,6 +73,21 @@ export interface MessHeaders {
 	Origin?: string;
 	'User-Agent'?: string;
 	Connection?: string;
+}
+
+export interface Message {
+	type: 'message';
+	attachments: any[];
+	/** The string corresponding to the message that was just received */
+	body: string;
+	/** Whether is a group thread */
+	isGroup: boolean;
+	/** An object containing people mentioned/tagged in the message */
+	mentions: { id: string }[];
+	messageID: string;
+	senderID: string;
+	threadID: string;
+	isUnread: boolean;
 }
 
 export type AppState = Cookie[];

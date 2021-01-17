@@ -28,9 +28,11 @@
 	"dependencies": {
 		"bluebird": "^3.7.2",
 		"cheerio": "^1.0.0-rc.5",
+		"mqtt": "^4.2.6",
 		"npmlog": "^4.1.2",
 		"request": "^2.88.2",
-		"tough-cookie": "^4.0.0"
+		"tough-cookie": "^4.0.0",
+		"websocket-stream": "^5.5.2"
 	},
 	"devDependencies": {
 		"@types/bluebird": "^3.5.33",
