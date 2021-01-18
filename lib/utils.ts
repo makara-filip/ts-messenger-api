@@ -1,4 +1,16 @@
-import { ApiCtx, ApiOptions, Dfs, MessHeaders, RequestForm } from './types';
+import {
+	AnyAttachment,
+	ApiCtx,
+	ApiOptions,
+	Dfs,
+	Event,
+	LogMessageType,
+	Message,
+	MessHeaders,
+	Read,
+	ReadReceipt,
+	RequestForm
+} from './types';
 import r from 'request';
 import Bluebird, { promisify } from 'bluebird';
 import { Response } from 'request';
@@ -19,7 +31,7 @@ export function getHeaders(url: string, options: ApiOptions): MessHeaders {
 }
 
 // TODO: May not be right
-export function isReadableStream(obj: any): boolean {
+export function isReadableStream(obj: unknown): boolean {
 	return (
 		obj instanceof stream.Stream &&
 		(getType((obj as stream.Readable)._read) === 'Function' ||
@@ -256,144 +268,7 @@ export function getGUID(): string {
 	return id;
 }
 
-export interface Attachment {
-	type: string;
-	ID: string;
-	url: string;
-}
-export interface Preview {
-	previewUrl: string;
-	previewWidth: number;
-	previewHeight: number;
-}
-
-export interface StickerAttachment extends Attachment {
-	type: 'sticker';
-	packID: string;
-	spriteUrl: string;
-	spriteUrl2x: string;
-	width: number;
-	height: number;
-
-	caption: string;
-	description: string;
-
-	frameCount: number;
-	frameRate: number;
-	framesPerRow: number;
-	framesPerCol: number;
-
-	stickerID: string; // @Legacy
-	spriteURI: string; // @Legacy
-	spriteURI2x: string; // @Legacy
-}
-export interface FileAttachment extends Attachment {
-	type: 'file';
-	filename: string;
-
-	isMalicious: boolean;
-	contentType: string;
-
-	name: string; // @Legacy
-	mimeType: string; // @Legacy
-	fileSize: number; // @Legacy
-}
-export interface PhotoAttachment extends Attachment, Preview {
-	type: 'photo';
-	filename: string;
-	thumbnailUrl: string;
-
-	largePreviewUrl: string;
-	largePreviewWidth: number;
-	largePreviewHeight: number;
-
-	width: number; // @Legacy
-	height: number; // @Legacy
-	name: string; // @Legacy
-}
-export interface AnimatedImageAttachment extends Attachment, Preview {
-	type: 'animated_image';
-	filename: string;
-
-	url: string;
-	width: number;
-	height: number;
-
-	name: string; // @Legacy
-	facebookUrl: string; // @Legacy
-	thumbnailUrl: string; // @Legacy
-	mimeType?: string; // @Legacy
-	rawGifImage: unknown; // @Legacy
-	rawWebpImage?: unknown; // @Legacy
-	animatedGifUrl: string; // @Legacy
-	animatedGifPreviewUrl: string; // @Legacy
-	animatedWebpUrl: string; // @Legacy
-	animatedWebpPreviewUrl: string; // @Legacy
-}
-export interface ShareAttachment extends Attachment {
-	type: 'share';
-
-	title: string;
-	description: string;
-	source: unknown;
-
-	image: unknown;
-	width: number;
-	height: number;
-	playable: boolean;
-	duration: number;
-
-	subattachments: unknown;
-	properties: unknown;
-
-	playableUrl?: string;
-
-	animatedImageSize?: number; // @Legacy
-	facebookUrl: string; // @Legacy
-	target: unknown; // @Legacy
-	styleList: unknown; // @Legacy
-}
-export interface VideoAttachment extends Attachment, Preview {
-	type: 'video';
-	filename: string;
-
-	width: number;
-	height: number;
-
-	duration: number;
-	videoType: 'unknown';
-
-	thumbnailUrl: string; // @Legacy
-}
-export interface AudioAttachment extends Attachment {
-	type: 'audio';
-	filename: string;
-
-	audioType: string;
-	/** Playable duration in ms */
-	duration: number;
-
-	isVoiceMail: boolean;
-}
-
-export interface AttachmentError {
-	type: 'error';
-	attachment1: any;
-	attachment2: any;
-}
-
-export function _formatAttachment(
-	attachment1: any,
-	attachment2?: any
-):
-	| StickerAttachment
-	| FileAttachment
-	| PhotoAttachment
-	| AnimatedImageAttachment
-	| ShareAttachment
-	| VideoAttachment
-	| AudioAttachment
-	| AttachmentError {
+export function _formatAttachment(attachment1: any, attachment2?: any): AnyAttachment {
 	// TODO: THIS IS REALLY BAD
 	// This is an attempt at fixing Facebook's inconsistencies. Sometimes they give us
 	// two attachment objects, but sometimes only one. They each contain part of the
@@ -716,7 +591,7 @@ export function formatAttachment(attachments: any[], attachmentIds: any, attachm
 		: [];
 }
 
-export function formatDeltaMessage(m: any) {
+export function formatDeltaMessage(m: any): Message {
 	const md = m.delta.messageMetadata;
 
 	const mdata: any[] =
@@ -724,7 +599,8 @@ export function formatDeltaMessage(m: any) {
 	const m_id = mdata.map(u => u.i);
 	const m_offset = mdata.map(u => u.o);
 	const m_length = mdata.map(u => u.l);
-	const mentions: { [index: string]: string } = {};
+	//TODO: This was modified
+	const mentions: { id: string }[] = [];
 	for (let i = 0; i < m_id.length; i++) {
 		mentions[m_id[i]] = m.delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
 	}
@@ -848,7 +724,7 @@ export function formatHistoryMessage(
 }
 
 // Get a more readable message type for AdminTextMessages
-export function getAdminTextMessageType(type: string): string {
+export function getAdminTextMessageType(type: string): LogMessageType {
 	switch (type) {
 		case 'change_thread_theme':
 			return 'log:thread-color';
@@ -857,12 +733,12 @@ export function getAdminTextMessageType(type: string): string {
 		case 'change_thread_icon':
 			return 'log:thread-icon';
 		default:
-			return type;
+			return type as LogMessageType;
 	}
 }
 
-export function formatDeltaEvent(m: any) {
-	let logMessageType;
+export function formatDeltaEvent(m: any): Event {
+	let logMessageType: LogMessageType | undefined = undefined;
 	let logMessageData;
 
 	// log:thread-color => {theme_color}
@@ -917,7 +793,7 @@ export function formatTyp(event: any) {
 	};
 }
 
-export function formatDeltaReadReceipt(delta: any) {
+export function formatDeltaReadReceipt(delta: any): ReadReceipt {
 	// otherUserFbId seems to be used as both the readerID and the threadID in a 1-1 chat.
 	// In a group chat actorFbId is used for the reader and threadFbId for the thread.
 	return {
@@ -928,7 +804,7 @@ export function formatDeltaReadReceipt(delta: any) {
 	};
 }
 
-export function formatReadReceipt(event: any) {
+export function formatReadReceipt(event: any): ReadReceipt {
 	return {
 		reader: event.reader.toString(),
 		time: event.time,
@@ -937,7 +813,7 @@ export function formatReadReceipt(event: any) {
 	};
 }
 
-export function formatRead(event: any) {
+export function formatRead(event: any): Read {
 	return {
 		threadID: formatID(
 			((event.chat_ids && event.chat_ids[0]) || (event.thread_fbids && event.thread_fbids[0])).toString()

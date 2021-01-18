@@ -1,6 +1,6 @@
 /* eslint-disable no-case-declarations */
 import log from 'npmlog';
-import { ApiCtx, Dfs, Message, RequestForm } from './types';
+import { ApiCtx, Dfs, ListenCallback, MessageReply, MqttQueue, Presence, RequestForm, Typ } from './types';
 import * as utils from './utils';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
@@ -9,12 +9,33 @@ export default class Api {
 	ctx: ApiCtx;
 	private _defaultFuncs;
 
+	private _topics = [
+		'/t_ms',
+		'/thread_typing',
+		'/orca_typing_notifications',
+		'/orca_presence',
+		'/legacy_web',
+		'/br_sr',
+		'/sr_res',
+		'/webrtc',
+		'/onevc',
+		'/notify_disconnect',
+		'/inbox',
+		'/mercury',
+		'/messaging_events',
+		'/orca_message_notifications',
+		'/pp',
+		'/webrtc_response'
+	];
+	private chatOn = true;
+	private foreground = false;
+
 	constructor(defaultFuncs: Dfs, ctx: ApiCtx) {
 		this.ctx = ctx;
 		this._defaultFuncs = defaultFuncs;
 	}
 
-	deleteMessage(messageOrMessages: string[], callback = (err?: Error) => undefined): void {
+	deleteMessage(messageOrMessages: string[], callback = (err?: Error) => err): void {
 		const form: RequestForm = {
 			client: 'mercury'
 		};
@@ -39,7 +60,11 @@ export default class Api {
 			});
 	}
 
-	listen(callback: (err?: string, message?: Message) => void): () => void {
+	/**
+	 * @param callback Function that's called on every received message
+	 * @returns Function that when called, stops listening
+	 */
+	listen(callback: ListenCallback): () => void {
 		let globalCallback = callback;
 
 		//Reset some stuff
@@ -85,7 +110,7 @@ export default class Api {
 				return callback(err);
 			});
 
-		const stopListening = () => {
+		return () => {
 			// eslint-disable-next-line @typescript-eslint/no-empty-function
 			globalCallback = function () {};
 
@@ -94,32 +119,9 @@ export default class Api {
 				this.ctx.mqttClient = undefined;
 			}
 		};
-
-		return stopListening;
 	}
 
-	private _topics = [
-		'/t_ms',
-		'/thread_typing',
-		'/orca_typing_notifications',
-		'/orca_presence',
-		'/legacy_web',
-		'/br_sr',
-		'/sr_res',
-		'/webrtc',
-		'/onevc',
-		'/notify_disconnect',
-		'/inbox',
-		'/mercury',
-		'/messaging_events',
-		'/orca_message_notifications',
-		'/pp',
-		'/webrtc_response'
-	];
-	private chatOn = true;
-	private foreground = false;
-
-	private _listenMqtt(globalCallback: (err?: string, message?: Message) => void) {
+	private _listenMqtt(globalCallback: ListenCallback) {
 		const sessionID = Math.floor(Math.random() * 9007199254740991) + 1;
 		const username = {
 			u: this.ctx.userID,
@@ -139,7 +141,7 @@ export default class Api {
 			no_auto_fg: true,
 			gas: null
 		};
-		const cookies = this.ctx.jar.getCookies('https://www.facebook.com').join('; ');
+		const cookies: string = this.ctx.jar.getCookies('https://www.facebook.com').join('; ');
 
 		//Region could be changed for better ping. (Region atn: Southeast Asia, region ash: West US, prob) (Don't really know if we need it).
 		//// const host = 'wss://edge-chat.facebook.com/chat?region=atn&sid=' + sessionID;
@@ -164,19 +166,20 @@ export default class Api {
 			}
 		};
 
-		this.ctx.mqttClient = new mqtt.Client(_ => websocket(host, options.wsOptions), options);
+		this.ctx.mqttClient = new mqtt.Client(() => websocket(host, options.wsOptions), options);
 
 		const mqttClient = this.ctx.mqttClient;
 
-		mqttClient.on('error', function (err: any) {
-			log.error('FIXTHIS', err);
+		mqttClient.on('error', function (err) {
+			//TODO: This was modified
+			log.error('err', err.message);
 			mqttClient.end();
 			globalCallback('Connection refused: Server unavailable');
 		});
 
 		mqttClient.on('connect', () => {
 			let topic;
-			const queue: any = {
+			const queue: MqttQueue = {
 				sync_api_version: 10,
 				max_deltas_able_to_process: 1000,
 				delta_batch_size: 500,
@@ -200,7 +203,7 @@ export default class Api {
 
 			mqttClient.publish(topic, JSON.stringify(queue), { qos: 1, retain: false });
 		});
-		mqttClient.on('message', (topic, message, packet) => {
+		mqttClient.on('message', (topic, message) => {
 			//TODO: This was modified
 			const jsonMessage = JSON.parse(message.toString());
 			if (topic === '/t_ms') {
@@ -227,15 +230,14 @@ export default class Api {
 					this._parseDelta(globalCallback, { delta: delta });
 				}
 			} else if (topic === '/thread_typing' || topic === '/orca_typing_notifications') {
-				const typ = {
+				const typ: Typ = {
 					type: 'typ',
 					isTyping: !!jsonMessage.state,
 					from: jsonMessage.sender_fbid.toString(),
 					threadID: utils.formatID((jsonMessage.thread || jsonMessage.sender_fbid).toString())
 				};
 				(function () {
-					//TODO: This was disables
-					// globalCallback(undefined, typ);
+					globalCallback(undefined, typ);
 				})();
 			} else if (topic === '/orca_presence') {
 				if (!this.ctx.globalOptions.updatePresence) {
@@ -243,7 +245,7 @@ export default class Api {
 						const data = jsonMessage.list[i];
 						const userID = data['u'];
 
-						const presence = {
+						const presence: Presence = {
 							type: 'presence',
 							userID: userID.toString(),
 							//Convert to ms
@@ -251,8 +253,7 @@ export default class Api {
 							statuses: data['p']
 						};
 						(function () {
-							//TODO: This was disabled
-							// globalCallback(undefined, presence);
+							globalCallback(undefined, presence);
 						})();
 					}
 				}
@@ -264,11 +265,11 @@ export default class Api {
 		});
 	}
 
-	private _parseDelta(globalCallback: (err?: any, message?: any) => void, v: { delta: any }) {
+	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const that = this;
 		if (v.delta.class == 'NewMessage') {
-			(function resolveAttachmentUrl(i): any {
+			(function resolveAttachmentUrl(i): void {
 				// sometimes, with sticker message in group, delta does not contain 'attachments' property.
 				if (v.delta.attachments && i == v.delta.attachments.length) {
 					let fmtMsg;
@@ -295,7 +296,7 @@ export default class Api {
 						  })();
 				} else {
 					if (v.delta.attachments && v.delta.attachments[i].mercury.attach_type == 'photo') {
-						that.resolvePhotoUrl(v.delta.attachments[i].fbid, (err: any, url: string) => {
+						that.resolvePhotoUrl(v.delta.attachments[i].fbid, (err?: Error, url?: string) => {
 							if (!err) v.delta.attachments[i].mercury.metadata.url = url;
 							return resolveAttachmentUrl(i + 1);
 						});
@@ -313,7 +314,7 @@ export default class Api {
 					const delta = clientPayload.deltas[i];
 					if (delta.deltaMessageReaction && !!this.ctx.globalOptions.listenEvents) {
 						(function () {
-							globalCallback(null, {
+							globalCallback(undefined, {
 								type: 'message_reaction',
 								threadID: (delta.deltaMessageReaction.threadKey.threadFbId
 									? delta.deltaMessageReaction.threadKey.threadFbId
@@ -327,7 +328,7 @@ export default class Api {
 						})();
 					} else if (delta.deltaRecallMessageData && !!this.ctx.globalOptions.listenEvents) {
 						(function () {
-							globalCallback(null, {
+							globalCallback(undefined, {
 								type: 'message_unsend',
 								threadID: (delta.deltaRecallMessageData.threadKey.threadFbId
 									? delta.deltaRecallMessageData.threadKey.threadFbId
@@ -362,7 +363,7 @@ export default class Api {
 							);
 						}
 						//Mention block - 1#
-						const callbackToReturn: any = {
+						const callbackToReturn: MessageReply = {
 							type: 'message_reply',
 							threadID: (delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
 								? delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
@@ -417,6 +418,7 @@ export default class Api {
 							}
 							//Mention block - 2#
 							callbackToReturn.messageReply = {
+								type: 'message',
 								threadID: (delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
 									? delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
 									: delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.otherUserFbId
@@ -595,12 +597,12 @@ export default class Api {
 
 	private _markDelivery(threadID: string, messageID: string) {
 		if (threadID && messageID) {
-			this.markAsDelivered(threadID, messageID, (err: any) => {
+			this.markAsDelivered(threadID, messageID, err => {
 				if (err) {
 					log.error('FIX THIS', err);
 				} else {
 					if (this.ctx.globalOptions.autoMarkRead) {
-						this.markAsRead(threadID, undefined, (err: any) => {
+						this.markAsRead(threadID, undefined, err => {
 							if (err) {
 								log.error('FIX THIS', err);
 							}
@@ -611,7 +613,7 @@ export default class Api {
 		}
 	}
 
-	resolvePhotoUrl(photoID: string, callback: any) {
+	resolvePhotoUrl(photoID: string, callback: (err?: Error, url?: string) => void): void {
 		if (!callback) {
 			throw { error: 'resolvePhotoUrl: need callback' };
 		}
@@ -628,7 +630,7 @@ export default class Api {
 
 				const photoUrl = resData.jsmods.require[0][3][0];
 
-				return callback(null, photoUrl);
+				return callback(undefined, photoUrl);
 			})
 			.catch(err => {
 				log.error('resolvePhotoUrl', err);
@@ -636,7 +638,7 @@ export default class Api {
 			});
 	}
 
-	markAsDelivered(threadID: string, messageID: string, callback: any) {
+	markAsDelivered(threadID: string, messageID: string, callback: (err?: string) => void) {
 		if (!callback) {
 			// eslint-disable-next-line @typescript-eslint/no-empty-function
 			callback = function () {};
@@ -670,8 +672,8 @@ export default class Api {
 
 	// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	markAsRead(threadID: string, read = true, callback = (err?: any) => {}) {
-		const form: any = {};
+	markAsRead(threadID: string, read = true, callback = (err?: any) => {}): void {
+		const form: { [index: string]: string | boolean | number } = {};
 
 		if (typeof this.ctx.globalOptions.pageID !== 'undefined') {
 			form['source'] = 'PagesManagerMessagesInterface';
