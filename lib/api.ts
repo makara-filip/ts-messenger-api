@@ -5,20 +5,21 @@ import {
 	ApiCtx,
 	Dfs,
 	ListenCallback,
+	MessageID,
 	MessageReply,
 	MqttQueue,
 	OutgoingMessage,
 	Presence,
 	RequestForm,
-	Typ,
-	UserID,
-	UserInfoDict
+	Typ
 } from './types';
+import { UserID, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
 import stream from 'stream';
 import bluebird from 'bluebird';
+import { ThreadID } from './types/threads';
 
 export default class Api {
 	ctx: ApiCtx;
@@ -59,7 +60,7 @@ export default class Api {
 		this._defaultFuncs = defaultFuncs;
 	}
 
-	deleteMessage(messageOrMessages: string[], callback = (err?: Error) => err): void {
+	deleteMessage(messageOrMessages: MessageID[], callback = (err?: Error) => err): void {
 		const form: RequestForm = {
 			client: 'mercury'
 		};
@@ -619,7 +620,7 @@ export default class Api {
 		}
 	}
 
-	private _markDelivery(threadID: string, messageID: string) {
+	private _markDelivery(threadID: ThreadID, messageID: MessageID) {
 		if (threadID && messageID) {
 			this.markAsDelivered(threadID, messageID, err => {
 				if (err) {
@@ -662,7 +663,7 @@ export default class Api {
 			});
 	}
 
-	markAsDelivered(threadID: string, messageID: string, callback: (err?: string) => void) {
+	markAsDelivered(threadID: ThreadID, messageID: MessageID, callback: (err?: string) => void) {
 		if (!callback) {
 			// eslint-disable-next-line @typescript-eslint/no-empty-function
 			callback = function () {};
@@ -696,7 +697,7 @@ export default class Api {
 
 	// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	markAsRead(threadID: string, read = true, callback = (err?: any) => {}): void {
+	markAsRead(threadID: ThreadID, read = true, callback = (err?: any) => {}): void {
 		const form: { [index: string]: string | boolean | number } = {};
 
 		if (typeof this.ctx.globalOptions.pageID !== 'undefined') {
@@ -736,9 +737,9 @@ export default class Api {
 	 */
 	sendMessage(
 		msg: OutgoingMessage,
-		threadID: string | number | string[],
+		threadID: ThreadID | ThreadID[],
 		callback = (err?: { error: string }) => {},
-		replyToMessage?: string
+		replyToMessage?: MessageID
 	): void {
 		const msgType = utils.getType(msg);
 		const threadIDType = utils.getType(threadID);
@@ -1015,7 +1016,7 @@ export default class Api {
 			});
 	}
 
-	private send(form: RequestForm, threadID: string | number | string[], messageAndOTID: string, callback) {
+	private send(form: RequestForm, threadID: ThreadID | ThreadID[], messageAndOTID: string, callback) {
 		// We're doing a query to this to check if the given id is the id of
 		// a user or of a group chat. The form will be different depending
 		// on that.
@@ -1026,19 +1027,19 @@ export default class Api {
 				if (err) {
 					return callback(err);
 				}
-				sendContent(form, threadID, Object.keys(res).length > 0, messageAndOTID, callback);
+				if (res) {
+					sendContent(form, threadID, Object.keys(res).length > 0, messageAndOTID, callback);
+				} else {
+					throw new Error('Fatal');
+				}
 			});
 		}
 	}
 
-	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoDict) => void): void {
+	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoGeneralDictByUserId) => void): void {
 		if (!callback) {
 			throw { error: 'getUserInfo: need callback' };
 		}
-
-		// if (utils.getType(id) !== 'Array') {
-		// 	id = [id];
-		// }
 		if (!(id instanceof Array)) id = [id];
 
 		const form: { [index: string]: UserID } = {};
