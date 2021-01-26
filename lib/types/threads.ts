@@ -1,4 +1,5 @@
-import { UserID } from '../types';
+import { Message } from '../types';
+import { UserID } from './users';
 
 export type ThreadID = string | number;
 
@@ -34,7 +35,7 @@ export interface ThreadInfo {
 	mentionsMuteMode: 'mentions_not_muted' | 'mentions_muted';
 	reactionsMuteMode: 'reactions_not_muted' | 'reactions_muted';
 
-	// snipp;
+	// there are other properties, but they rarely appear and are not really important
 }
 
 export type ThreadColor = string | null;
@@ -45,3 +46,7 @@ export type ThreadNickname = {
 	userid: UserID;
 	nickname: string;
 };
+
+/** The thread history consisting of last messages.
+ * Get an instance from `API.getThreadHistory()` method. */
+export type ThreadHistory = Array<Message>;

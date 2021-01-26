@@ -4,6 +4,7 @@ import { Cookie } from 'tough-cookie';
 import Jar from './jar';
 import mqtt from 'mqtt';
 import stream from 'stream';
+import { UserID } from './types/users';
 
 export interface Credentials {
 	email: string;
@@ -76,29 +77,6 @@ export interface MessHeaders {
 	Connection?: string;
 }
 
-/** The identification of Facebook user (human, app or page) */
-export type UserID = string | number;
-/** Information about a single user given by the `API.getUserInfo()` method. */
-export interface UserInfo {
-	name: string;
-	firstName: string;
-	/** Gender of the user - `1` for female, `2` for male???? */
-	gender: number;
-	isBirthday: boolean;
-	isFriend: boolean;
-	/** The Url to Facebook profile of the user.
-	 * @example `https://www.facebook.com/jamestesting24 */
-	profileUrl: string;
-	/** The Url to profile picture of the user in low-resolution (32x32 px) */
-	thumbSrc: string;
-	type: 'friend' | 'user' | 'page' | 'event' | 'app' | 'group' | string;
-	/** The profile name of the user
-	 * @example `jamestesting24 */
-	vanity: string;
-	alternateName: string;
-}
-/** Inforamtion about multiple users returned by the `API.getUserInfo()` method. */
-export type UserInfoDict = Map<UserID, UserInfo>;
 
 /** Message can only be a regular message (`body` field set) and optionally one of a `sticker`, `attachment` or `url` */
 export interface OutgoingMessage {
@@ -133,6 +111,8 @@ interface MessageBase {
 	threadID: string;
 }
 
+export type MessageID = string;
+
 export interface Message extends MessageBase {
 	type: 'message';
 	attachments: AnyAttachment[];
@@ -142,8 +122,8 @@ export interface Message extends MessageBase {
 	isGroup: boolean;
 	/** An object containing people mentioned/tagged in the message */
 	mentions: { id: string }[];
-	messageID: string;
-	senderID: string;
+	messageID: MessageID;
+	senderID: UserID;
 	isUnread?: boolean;
 	timestamp?: number;
 }
