@@ -32,7 +32,7 @@ export default function login(
 	setOptions(globalOptions, options);
 
 	//TODO: Add support for appState
-	loginHelper(loginData.appState, loginData.email, loginData.password, globalOptions, callback);
+	loginHelper(loginData.email, loginData.password, globalOptions, callback, loginData.appState);
 }
 
 /** Sets `globalOptions` and npmlog based on the `options` attribute */
@@ -79,11 +79,11 @@ function setOptions(globalOptions: ApiOptions, options: ApiOptions): void {
 }
 
 function loginHelper(
-	appState: AppState,
 	email: string,
 	password: string,
 	globalOptions: ApiOptions,
-	callback: (err?: Error, api?: Api) => void
+	callback: (err?: Error, api?: Api) => void,
+	appState?: AppState
 ) {
 	let mainPromise = null;
 	const jar = new Jar();
@@ -358,7 +358,7 @@ function makeLogin(
 
 												// Simply call loginHelper because all it needs is the jar
 												// and will then complete the login process
-												return loginHelper(appState, email, password, loginOptions, callback);
+												return loginHelper(email, password, loginOptions, callback, appState);
 											})
 											.catch(function (err) {
 												callback(err);
@@ -398,7 +398,7 @@ function makeLogin(
 
 										// Simply call loginHelper because all it needs is the jar
 										// and will then complete the login process
-										return loginHelper(appState, email, password, loginOptions, callback);
+										return loginHelper(email, password, loginOptions, callback, appState);
 									})
 									.catch(function (e) {
 										callback(e);
