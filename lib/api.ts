@@ -84,6 +84,31 @@ export default class Api {
 			});
 	}
 
+	unsendMessage(messageID: MessageID, callback: (err?: any) => void): void {
+		if (!callback) {
+			callback = function () {};
+		}
+
+		const form = {
+			message_id: messageID
+		};
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/messaging/unsend_message/', this.ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then(function (resData) {
+				if (resData.error) {
+					throw resData;
+				}
+
+				return callback();
+			})
+			.catch(function (err) {
+				log.error('unsendMessage', err);
+				return callback(err);
+			});
+	}
+
 	/**
 	 * @param callback Function that's called on every received message
 	 * @returns Function that when called, stops listening
@@ -727,6 +752,32 @@ export default class Api {
 			});
 	}
 
+	markAsReadAll(callback: (err?: any) => void): void {
+		if (!callback) {
+			callback = function () {};
+		}
+
+		const form = {
+			folder: 'inbox'
+		};
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/ajax/mercury/mark_folder_as_read.php', this.ctx.jar, form)
+			.then(utils.saveCookies(this.ctx.jar))
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then(function (resData) {
+				if (resData.error) {
+					throw resData;
+				}
+
+				return callback();
+			})
+			.catch(function (err) {
+				log.error('markAsReadAll', err);
+				return callback(err);
+			});
+	}
+
 	/**
 	 * Sends a message to a given thread.
 	 * @param msg Contents of the message
@@ -952,5 +1003,66 @@ export default class Api {
 		}
 
 		return retObj;
+	}
+
+	// -1=permanent mute, 0=unmute, 60=one minute, 3600=one hour, etc.
+	muteThread(threadID: ThreadID, muteSeconds: number, callback: (err?: any) => void): void {
+		if (!callback) {
+			callback = function () {};
+		}
+
+		const form = {
+			thread_fbid: threadID,
+			mute_settings: muteSeconds
+		};
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/ajax/mercury/change_mute_thread.php', this.ctx.jar, form)
+			.then(utils.saveCookies(this.ctx.jar))
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then(function (resData) {
+				if (resData.error) {
+					throw resData;
+				}
+
+				return callback();
+			})
+			.catch(function (err) {
+				log.error('muteThread', err);
+				return callback(err);
+			});
+	}
+
+	deleteThread(threadOrThreads: ThreadID | ThreadID[], callback: (err?: any) => void): void{
+		if (!callback) {
+			callback = function () {};
+		}
+
+		const form: RequestForm = {
+			client: 'mercury'
+		};
+
+		if (!(threadOrThreads instanceof Array)) {
+			threadOrThreads = [threadOrThreads];
+		}
+
+		for (let i = 0; i < threadOrThreads.length; i++) {
+			form['ids[' + i + ']'] = threadOrThreads[i];
+		}
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/ajax/mercury/delete_thread.php', this.ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (resData.error) {
+					throw resData;
+				}
+
+				return callback();
+			})
+			.catch((err: any) => {
+				log.error('deleteThread', err);
+				return callback(err);
+			});
 	}
 }

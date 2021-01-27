@@ -10,7 +10,7 @@
 - [ ] changeThreadEmoji.js
 - [ ] createPoll.js
 - [x] deleteMessage.js
-- [ ] deleteThread.js
+- [x] deleteThread.js
 - [ ] forwardAttachment.js
 - [ ] forwardMessage.js
 - [x] getCurrentUserID.js
@@ -21,7 +21,6 @@
 - [ ] getThreadInfo.js
 - [ ] getThreadInfoDeprecated.js
 - [ ] getThreadList.js
-- [ ] getThreadListDeprecated.js
 - [ ] getThreadPictures.js
 - [ ] getUserID.js
 - [x] getUserInfo.js
@@ -31,8 +30,8 @@
 - [ ] logout.js
 - [x] markAsDelivered.js
 - [x] markAsRead.js
-- [ ] markAsReadAll.js
-- [ ] muteThread.js
+- [x] markAsReadAll.js
+- [x] muteThread.js
 - [ ] removeUserFromGroup.js
 - [x] resolvePhotoUrl.js
 - [ ] searchForThread.js
@@ -41,4 +40,4 @@
 - [ ] setMessageReaction.js
 - [ ] setTitle.js
 - [ ] threadColors.js
-- [ ] unsendMessage.js
+- [x] unsendMessage.js
