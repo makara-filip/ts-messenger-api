@@ -1,7 +1,8 @@
 {
 	"diff": true,
 	"extension": [
-		"js"
+		"js",
+		"ts"
 	],
 	"package": "./package.json",
 	"reporter": "spec",
@@ -13,5 +14,6 @@
 	],
 	"watch-ignore": [
 		"lib/vendor"
-	]
+	],
+	"module": "esnext"
 }

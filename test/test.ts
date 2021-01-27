@@ -9,12 +9,12 @@ describe('Basic Login', function () {
 	before(function (done) {
 		let oneDone = false;
 		login({ email: 'jtestisnotlongenough@gmail.com', password: 'zemiakovysalat' }, {}, (err, iapi) => {
-			api1 = iapi;
+			api1 = iapi as Api;
 			if (oneDone) done();
 			else oneDone = true;
 		});
 		login({ email: 'jtestisnotlongenough1@gmail.com', password: 'zemiakovysalat' }, {}, (err, iapi) => {
-			api2 = iapi;
+			api2 = iapi as Api;
 			if (oneDone) done();
 			else oneDone = true;
 		});

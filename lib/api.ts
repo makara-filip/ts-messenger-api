@@ -13,7 +13,7 @@ import {
 	RequestForm,
 	Typ
 } from './types';
-import { UserID, UserInfoGeneralDictByUserId } from './types/users';
+import { UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
@@ -908,7 +908,12 @@ export default class Api {
 		);
 	}
 
-	private send(form: RequestForm, threadID: ThreadID | ThreadID[], messageAndOTID: string, callback) {
+	private send(
+		form: RequestForm,
+		threadID: ThreadID | ThreadID[],
+		messageAndOTID: string,
+		callback: (err?: { error: string } | undefined) => void
+	) {
 		// We're doing a query to this to check if the given id is the id of
 		// a user or of a group chat. The form will be different depending
 		// on that.
@@ -932,7 +937,7 @@ export default class Api {
 		threadID: ThreadID | ThreadID[],
 		isSingleUser: boolean,
 		messageAndOTID: string,
-		callback
+		callback: (err?: { error: string } | undefined) => void
 	) {
 		// There are three cases here:
 		// 1. threadID is of type array, where we're starting a new group chat with users
@@ -987,17 +992,8 @@ export default class Api {
 					return callback(resData);
 				}
 
-				const messageInfo = resData.payload.actions.reduce((p: any, v: any) => {
-					return (
-						{
-							threadID: v.thread_fbid,
-							messageID: v.message_id,
-							timestamp: v.timestamp
-						} || p
-					);
-				}, null);
-
-				return callback(null, messageInfo);
+				//TODO: THIS WAS MODIFIED
+				return callback();
 			})
 			.catch(function (err) {
 				log.error('sendMessage', err);
@@ -1018,24 +1014,24 @@ export default class Api {
 		this._defaultFuncs
 			.post('https://www.facebook.com/chat/user_info/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
+			.then(resData => {
 				if (resData.error) {
 					throw resData;
 				}
-				return callback(null, formatData(resData.payload.profiles));
+				return callback(null, this.formatData(resData.payload.profiles));
 			})
 			.catch(function (err) {
 				log.error('getUserInfo', err);
 				return callback(err);
 			});
 	}
-	private formatData(data: any) {
-		const retObj: { [index: string]: any } = {};
+	private formatData(data: any): Map<UserID, UserInfoGeneral> {
+		const retObj: UserInfoGeneralDictByUserId = new Map<UserID, UserInfoGeneral>();
 
 		for (const prop in data) {
-			if (data.hasOwnProperty(prop)) {
+			if (Object.hasOwnProperty.call(data, prop)) {
 				const innerObj = data[prop];
-				retObj[prop] = {
+				retObj.set(prop, {
 					name: innerObj.name,
 					firstName: innerObj.firstName,
 					vanity: innerObj.vanity,
@@ -1045,7 +1041,7 @@ export default class Api {
 					type: innerObj.type,
 					isFriend: innerObj.is_friend,
 					isBirthday: !!innerObj.is_birthday
-				};
+				});
 			}
 		}
 
@@ -1161,7 +1157,7 @@ export default class Api {
 		}
 
 		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/send/', ctx.jar, form)
+			.post('https://www.facebook.com/messaging/send/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then((resData: any) => {
 				if (!resData) {
@@ -1178,7 +1174,7 @@ export default class Api {
 				return callback(err);
 			});
 	}
-	
+
 	changeAdminStatus(
 		threadID: ThreadID,
 		adminIDs: Array<UserID>,

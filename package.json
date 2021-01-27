@@ -5,7 +5,7 @@
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"scripts": {
-		"test": "tsc && npx mocha",
+		"test": "tsc && npx mocha -r ts-node/register",
 		"prepublish": "npm run build",
 		"build": "tsc"
 	},
@@ -32,6 +32,7 @@
 		"npmlog": "^4.1.2",
 		"request": "^2.88.2",
 		"tough-cookie": "^4.0.0",
+		"ts-node": "^9.1.1",
 		"websocket-stream": "^5.5.2"
 	},
 	"devDependencies": {
