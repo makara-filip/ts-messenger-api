@@ -1,13 +1,13 @@
 ## Todo list:
 
-- [ ] addUserToGroup.js
-- [ ] changeAdminStatus.js
-- [ ] changeArchivedStatus.js
-- [ ] changeBlockedStatus.js
+- [x] addUserToGroup.js
+- [x] changeAdminStatus.js
+- [x] changeArchivedStatus.js
+- [x] changeBlockedStatus.js
 - [ ] changeGroupImage.js
 - [ ] changeNickname.js
 - [ ] changeThreadColor.js
-- [ ] changeThreadEmoji.js
+- [x] changeThreadEmoji.js
 - [ ] createPoll.js
 - [x] deleteMessage.js
 - [x] deleteThread.js

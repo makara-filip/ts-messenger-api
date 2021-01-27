@@ -17,7 +17,7 @@ import { UserID, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
-import { ThreadID } from './types/threads';
+import { ThreadColor, ThreadID } from './types/threads';
 import { OutgoingMessageHandler } from './entities/outgoing-message-handler';
 
 export default class Api {
@@ -59,7 +59,7 @@ export default class Api {
 		this._defaultFuncs = defaultFuncs;
 	}
 
-	logout(callback: (err?: any) => void): void{
+	logout(callback: (err?: any) => void): void {
 		callback = callback || function () {};
 
 		const form = {
@@ -1109,6 +1109,248 @@ export default class Api {
 			})
 			.catch((err: any) => {
 				log.error('deleteThread', err);
+				return callback(err);
+			});
+	}
+
+	addUserToGroup(userID: UserID | UserID[], threadID: ThreadID, callback: (err?: any) => void): void {
+		if (!callback) {
+			callback = function () {};
+		}
+
+		if (!(userID instanceof Array)) {
+			userID = [userID];
+		}
+
+		const messageAndOTID = utils.generateOfflineThreadingID();
+		const form: RequestForm = {
+			client: 'mercury',
+			action_type: 'ma-type:log-message',
+			author: 'fbid:' + this.ctx.userID,
+			thread_id: '',
+			timestamp: Date.now(),
+			timestamp_absolute: 'Today',
+			timestamp_relative: utils.generateTimestampRelative(),
+			timestamp_time_passed: '0',
+			is_unread: false,
+			is_cleared: false,
+			is_forward: false,
+			is_filtered_content: false,
+			is_filtered_content_bh: false,
+			is_filtered_content_account: false,
+			is_spoof_warning: false,
+			source: 'source:chat:web',
+			'source_tags[0]': 'source:chat',
+			log_message_type: 'log:subscribe',
+			status: '0',
+			offline_threading_id: messageAndOTID,
+			message_id: messageAndOTID,
+			threading_id: utils.generateThreadingID(this.ctx.clientID),
+			manual_retry_cnt: '0',
+			thread_fbid: threadID
+		};
+
+		for (let i = 0; i < userID.length; i++) {
+			if (utils.getType(userID[i]) !== 'Number' && utils.getType(userID[i]) !== 'String') {
+				throw {
+					error: 'Elements of userID should be of type Number or String and not ' + utils.getType(userID[i]) + '.'
+				};
+			}
+
+			form['log_message_data[added_participants][' + i + ']'] = 'fbid:' + userID[i];
+		}
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/messaging/send/', ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (!resData) {
+					throw { error: 'Add to group failed.' };
+				}
+				if (resData.error) {
+					throw resData;
+				}
+
+				return callback();
+			})
+			.catch((err: any) => {
+				log.error('addUserToGroup', err);
+				return callback(err);
+			});
+	}
+	
+	changeAdminStatus(
+		threadID: ThreadID,
+		adminIDs: Array<UserID>,
+		adminStatus: boolean,
+		callback: (err?: any) => void
+	): void {
+		if (utils.getType(adminIDs) !== 'Array') {
+			throw { error: 'changeAdminStatus: adminIDs must be an array or string' };
+		}
+
+		if (utils.getType(adminStatus) !== 'Boolean') {
+			throw { error: 'changeAdminStatus: adminStatus must be a string' };
+		}
+
+		if (!callback) {
+			callback = () => {};
+		}
+
+		if (utils.getType(callback) !== 'Function' && utils.getType(callback) !== 'AsyncFunction') {
+			throw { error: 'changeAdminStatus: callback is not a function' };
+		}
+
+		const form: any = {
+			thread_fbid: threadID
+		};
+
+		let i = 0;
+		for (const u of adminIDs) {
+			form[`admin_ids[${i++}]`] = u;
+		}
+		form['add'] = adminStatus;
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/messaging/save_admins/?dpr=1', this.ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (resData.error) {
+					switch (resData.error) {
+						case 1976004:
+							throw { error: 'Cannot alter admin status: you are not an admin.', rawResponse: resData };
+						case 1357031:
+							throw { error: 'Cannot alter admin status: this thread is not a group chat.', rawResponse: resData };
+						default:
+							throw { error: 'Cannot alter admin status: unknown error.', rawResponse: resData };
+					}
+				}
+				callback();
+			})
+			.catch(err => {
+				log.error('changeAdminStatus', err);
+				return callback(err);
+			});
+	}
+
+	changeArchivedStatus(threadOrThreads: ThreadID | ThreadID[], archive: boolean, callback: (err?: any) => void): void {
+		if (!callback) {
+			callback = function () {};
+		}
+
+		const form: any = {};
+
+		if (threadOrThreads instanceof Array) {
+			for (let i = 0; i < threadOrThreads.length; i++) {
+				form['ids[' + threadOrThreads[i] + ']'] = archive;
+			}
+		} else {
+			form['ids[' + threadOrThreads + ']'] = archive;
+		}
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/ajax/mercury/change_archived_status.php', this.ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (resData.error) {
+					throw resData;
+				}
+				return callback();
+			})
+			.catch((err: any) => {
+				log.error('changeArchivedStatus', err);
+				return callback(err);
+			});
+	}
+
+	changeBlockedStatus(userID: UserID, block: boolean, callback: (err?: any) => void): void {
+		if (!callback) {
+			callback = function () {};
+		}
+		if (block) {
+			this._defaultFuncs
+				.post(
+					'https://www.facebook.com/nfx/block_messages/?thread_fbid=' + userID + '&location=www_chat_head',
+					this.ctx.jar,
+					{}
+				)
+				.then(utils.saveCookies(this.ctx.jar))
+				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+				.then((resData: any) => {
+					if (resData.error) {
+						throw resData;
+					}
+					this._defaultFuncs
+						.post(
+							'https://www.facebook.com' +
+								(/action="(.+?)"+?/.exec(resData.jsmods.markup[0][1].__html) || '')[1].replace(/&amp;/g, '&'),
+							this.ctx.jar,
+							{}
+						)
+						.then(utils.saveCookies(this.ctx.jar))
+						.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+						.then((_resData: any) => {
+							if (_resData.error) {
+								throw _resData;
+							}
+							return callback();
+						});
+				})
+				.catch(function (err) {
+					log.error('changeBlockedStatus', err);
+					return callback(err);
+				});
+		} else {
+			this._defaultFuncs
+				.post(
+					'https://www.facebook.com/ajax/nfx/messenger_undo_block.php?story_location=messenger&context=%7B%22reportable_ent_token%22%3A%22' +
+						userID +
+						'%22%2C%22initial_action_name%22%3A%22BLOCK_MESSAGES%22%7D&',
+					this.ctx.jar,
+					{}
+				)
+				.then(utils.saveCookies(this.ctx.jar))
+				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+				.then((resData: any) => {
+					if (resData.error) {
+						throw resData;
+					}
+					return callback();
+				})
+				.catch((err: any) => {
+					log.error('changeBlockedStatus', err);
+					return callback(err);
+				});
+		}
+	}
+
+	changeThreadEmoji(emoji: string, threadID: ThreadID, callback: (err?: any) => void): void {
+		const form = {
+			emoji_choice: emoji,
+			thread_or_other_fbid: threadID
+		};
+
+		this._defaultFuncs
+			.post(
+				'https://www.facebook.com/messaging/save_thread_emoji/?source=thread_settings&__pc=EXP1%3Amessengerdotcom_pkg',
+				this.ctx.jar,
+				form
+			)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (resData.error === 1357031) {
+					throw {
+						error:
+							"Trying to change emoji of a chat that doesn't exist. Have at least one message in the thread before trying to change the emoji."
+					};
+				}
+				if (resData.error) {
+					throw resData;
+				}
+				return callback();
+			})
+			.catch((err: any) => {
+				log.error('changeThreadEmoji', err);
 				return callback(err);
 			});
 	}
