@@ -59,6 +59,53 @@ export default class Api {
 		this._defaultFuncs = defaultFuncs;
 	}
 
+	logout(callback: (err?: any) => void): void{
+		callback = callback || function () {};
+
+		const form = {
+			pmid: '0'
+		};
+
+		this._defaultFuncs
+			.post(
+				'https://www.facebook.com/bluebar/modern_settings_menu/?help_type=364455653583099&show_contextual_help=1',
+				this.ctx.jar,
+				form
+			)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				const elem = resData.jsmods.instances[0][2][0].filter((v: any) => v.value === 'logout')[0];
+
+				const html = resData.jsmods.markup.filter((v: any) => v[0] === elem.markup.__m)[0][1].__html;
+
+				const form = {
+					fb_dtsg: utils.getFrom(html, '"fb_dtsg" value="', '"'),
+					ref: utils.getFrom(html, '"ref" value="', '"'),
+					h: utils.getFrom(html, '"h" value="', '"')
+				};
+
+				return this._defaultFuncs
+					.post('https://www.facebook.com/logout.php', this.ctx.jar, form)
+					.then(utils.saveCookies(this.ctx.jar));
+			})
+			.then((res: any) => {
+				if (!res.headers) {
+					throw { error: 'An error occurred when logging out.' };
+				}
+
+				return this._defaultFuncs.get(res.headers.location, this.ctx.jar).then(utils.saveCookies(this.ctx.jar));
+			})
+			.then(() => {
+				this.ctx.loggedIn = false;
+				log.info('logout', 'Logged out successfully.');
+				callback();
+			})
+			.catch((err: any) => {
+				log.error('logout', err);
+				return callback(err);
+			});
+	}
+
 	deleteMessage(messageOrMessages: MessageID[], callback = (err?: Error) => err): void {
 		const form: RequestForm = {
 			client: 'mercury'
@@ -1033,7 +1080,7 @@ export default class Api {
 			});
 	}
 
-	deleteThread(threadOrThreads: ThreadID | ThreadID[], callback: (err?: any) => void): void{
+	deleteThread(threadOrThreads: ThreadID | ThreadID[], callback: (err?: any) => void): void {
 		if (!callback) {
 			callback = function () {};
 		}

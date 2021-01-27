@@ -27,7 +27,7 @@
 - [ ] handleMessageRequest.js
 - [x] listen.js
 - [x] listenMqtt.js
-- [ ] logout.js
+- [x] logout.js
 - [x] markAsDelivered.js
 - [x] markAsRead.js
 - [x] markAsReadAll.js
