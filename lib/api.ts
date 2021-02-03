@@ -3,6 +3,7 @@
 import log from 'npmlog';
 import {
 	ApiCtx,
+	AppState,
 	Dfs,
 	ListenCallback,
 	MessageID,
@@ -104,6 +105,10 @@ export default class Api {
 				log.error('logout', err);
 				return callback(err);
 			});
+	}
+
+	getAppState(): AppState {
+		return utils.getAppState(this.ctx.jar);
 	}
 
 	deleteMessage(messageOrMessages: MessageID[], callback = (err?: Error) => err): void {
@@ -1126,6 +1131,30 @@ export default class Api {
 			});
 	}
 
+	removeUserFromGroup(userID: UserID, threadID: ThreadID, callback: (err?: any) => void): void {
+		const form = {
+			uid: userID,
+			tid: threadID
+		};
+
+		this._defaultFuncs
+			.post('https://www.facebook.com/chat/remove_participants', this.ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (!resData) {
+					throw { error: 'Remove from group failed.' };
+				}
+				if (resData.error) {
+					throw resData;
+				}
+				return callback();
+			})
+			.catch((err: any) => {
+				log.error('removeUserFromGroup', err);
+				return callback(err);
+			});
+	}
+
 	changeAdminStatus(
 		threadID: ThreadID,
 		adminIDs: Array<UserID>,
@@ -1298,6 +1327,21 @@ export default class Api {
 			})
 			.catch((err: any) => {
 				log.error('changeThreadEmoji', err);
+				return callback(err);
+			});
+	}
+
+	getFriendsList(callback: (err?: any, info?: any) => void): void {
+		this._defaultFuncs
+			.postFormData('https://www.facebook.com/chat/user_info_all', this.ctx.jar, {}, { viewer: this.ctx.userID })
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (!resData) throw { error: 'getFriendsList returned empty object.' };
+				if (resData.error) throw resData;
+				callback(null, resData);
+			})
+			.catch((err: any) => {
+				log.error('getFriendsList', err);
 				return callback(err);
 			});
 	}

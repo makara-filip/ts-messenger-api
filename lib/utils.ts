@@ -17,6 +17,7 @@ import { Response } from 'request';
 import Jar from './jar';
 import stream from 'stream';
 import log from 'npmlog';
+import { Cookie } from 'tough-cookie';
 const request = promisify(r.defaults({ jar: true }), { multiArgs: true });
 
 export function getHeaders(url: string, options: ApiOptions): MessHeaders {
@@ -1170,7 +1171,7 @@ export function decodeClientPayload(payload: any) {
 	return JSON.parse(String.fromCharCode.apply(null, payload));
 }
 
-export function getAppState(jar: Jar) {
+export function getAppState(jar: Jar): Cookie[] {
 	return jar
 		.getCookies('https://www.facebook.com')
 		.concat(jar.getCookies('https://facebook.com'))

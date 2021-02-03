@@ -15,7 +15,7 @@
 - [ ] forwardMessage.js
 - [x] getCurrentUserID.js
 - [ ] getEmojiUrl.js
-- [ ] getFriendsList.js
+- [x] getFriendsList.js
 - [ ] getThreadHistory.js
 - [ ] getThreadHistoryDeprecated.js
 - [ ] getThreadInfo.js
@@ -32,7 +32,7 @@
 - [x] markAsRead.js
 - [x] markAsReadAll.js
 - [x] muteThread.js
-- [ ] removeUserFromGroup.js
+- [x] removeUserFromGroup.js
 - [x] resolvePhotoUrl.js
 - [ ] searchForThread.js
 - [x] sendMessage.js
