@@ -307,7 +307,6 @@ function makeLogin(
 			.then((res: Response) => {
 				utils.saveCookies(jar)(res);
 				const headers = res.headers;
-				console.log(headers);
 				if (!headers.location) {
 					throw { error: 'Wrong username/password.' };
 				}
