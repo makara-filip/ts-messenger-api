@@ -838,74 +838,25 @@ export default class Api {
 		callback = (err?: { error: string }) => {},
 		replyToMessage?: MessageID
 	): void {
-		const msgType = utils.getType(msg);
-		const threadIDType = utils.getType(threadID);
-		const messageIDType = utils.getType(replyToMessage);
-
-		if (msgType !== 'String' && msgType !== 'Object') {
-			return callback({
-				error: 'Message should be of type string or object and not ' + msgType + '.'
-			});
-		}
-
-		// Changing this to accomodate an array of users
-		if (threadIDType !== 'Array' && threadIDType !== 'Number' && threadIDType !== 'String') {
-			return callback({
-				error: 'ThreadID should be of type number, string, or array and not ' + threadIDType + '.'
-			});
-		}
-
-		if (replyToMessage && messageIDType !== 'String') {
-			return callback({
-				error: 'MessageID should be of type string and not ' + threadIDType + '.'
-			});
-		}
-
-		const disallowedProperties = Object.keys(msg).filter(prop => !this.allowedProperties[prop]);
-		if (disallowedProperties.length > 0) {
-			return callback({
-				error: 'Dissallowed props: `' + disallowedProperties.join(', ') + '`'
-			});
-		}
-
-		const messageAndOTID = utils.generateOfflineThreadingID();
-
-		const form: RequestForm = {
-			client: 'mercury',
-			action_type: 'ma-type:user-generated-message',
-			author: 'fbid:' + this.ctx.userID,
-			timestamp: Date.now(),
-			timestamp_absolute: 'Today',
-			timestamp_relative: utils.generateTimestampRelative(),
-			timestamp_time_passed: '0',
-			is_unread: false,
-			is_cleared: false,
-			is_forward: false,
-			is_filtered_content: false,
-			is_filtered_content_bh: false,
-			is_filtered_content_account: false,
-			is_filtered_content_quasar: false,
-			is_filtered_content_invalid_app: false,
-			is_spoof_warning: false,
-			source: 'source:chat:web',
-			'source_tags[0]': 'source:chat',
-			body: msg.body ? msg.body.toString() : '',
-			html_body: false,
-			ui_push_phase: 'V3',
-			status: '0',
-			offline_threading_id: messageAndOTID,
-			message_id: messageAndOTID,
-			threading_id: utils.generateThreadingID(this.ctx.clientID),
-			'ephemeral_ttl_mode:': '0',
-			manual_retry_cnt: '0',
-			has_attachment: !!(msg.attachment || msg.url || msg.sticker),
-			signatureID: utils.getSignatureID(),
-			replied_to_message_id: replyToMessage
+		const messageOTID = utils.generateOfflineThreadingID();
+		const wsContent = {
+			request_id: 25,
+			type: 3,
+			payload:
+				// `{"version_id":"3816854585040595","tasks":[{"label":"46","payload":"{\\"thread_id\\":100011977722167,\\"otid\\":\\"6762765770304308196\\",\\"source\\":65537,\\"send_type\\":1,\\"text\\":\\"wertyuio\\"}","queue_name":"100011977722167","task_id":14,"failure_count":null},{"label":"21","payload":"{\\"thread_id\\":100011977722167,\\"last_read_watermark_ts\\":1612369005752}","queue_name":"100011977722167","task_id":15,"failure_count":null}],"epoch_id":6762765770467264064,"data_trace_id":null}`,
+				`{"version_id":"3816854585040595","tasks":[{"label":"46","payload":"{\\"thread_id\\":${threadID},\\"otid\\":\\"${messageOTID}\\",\\"source\\":65537,\\"send_type\\":1,\\"text\\":\\"${
+					msg.body
+				}\\"}","queue_name":"${threadID}","task_id":14,"failure_count":null},{"label":"21","payload":"{\\"thread_id\\":${threadID},\\"last_read_watermark_ts\\":${new Date().getTime()}}","queue_name":"${threadID}","task_id":15,"failure_count":null}],"epoch_id":6762765770467264064,"data_trace_id":null}`,
+			app_id: '772021112871879'
+			// TODO: epoch_id & app_id
 		};
+		this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(wsContent), {}, (err: any, packet: any) => {
+			console.log(err, packet);
+		});
 
-		new OutgoingMessageHandler(this.ctx, this._defaultFuncs).handleAll(msg, form, callback, () =>
-			this.send(form, threadID, messageAndOTID, callback)
-		);
+		// new OutgoingMessageHandler(this.ctx, this._defaultFuncs).handleAll(msg, form, callback, () =>
+		// 	this.send(form, threadID, messageAndOTID, callback)
+		// );
 	}
 
 	private send(

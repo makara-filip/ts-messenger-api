@@ -1,4 +1,7 @@
 {
-	"conventionalCommits.scopes": ["login"],
+	"conventionalCommits.scopes": [
+		"login",
+		"messages"
+	],
 	"editor.defaultFormatter": "esbenp.prettier-vscode"
 }
