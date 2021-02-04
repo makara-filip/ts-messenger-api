@@ -10,7 +10,10 @@ import { AppState, Message } from '../dist/lib/types';
 
 describe('Fundamental API functioning', function () {
 	let appState1: AppState, appState2: AppState;
+	let startTime: Date;
 	before(() => {
+		startTime = new Date();
+		console.log(`The tests have just started. Timestamp: ${startTime.getTime()}`);
 		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'testAccount1.json')).toString());
 		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'testAccount3.json')).toString());
 	});
@@ -110,6 +113,16 @@ describe('Fundamental API functioning', function () {
 			if (!(api1.ctx.mqttClient || api1.ctx.mqttClient)) return; // both apis are suspended
 			api1.stopListening();
 			api2.stopListening();
+			console.log('The apis `listen` methods have been forcefully terminated after the timeout.');
 		}, 60000); // 1 minute
+	});
+
+	after(() => {
+		const endTime: Date = new Date();
+		console.log(
+			`The tests have completed. Timestamp: ${endTime.getTime()}. Duration: ${
+				endTime.getTime() - startTime.getTime()
+			} milliseconds`
+		);
 	});
 });
