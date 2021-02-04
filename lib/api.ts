@@ -136,31 +136,6 @@ export default class Api {
 			});
 	}
 
-	unsendMessage(messageID: MessageID, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-
-		const form = {
-			message_id: messageID
-		};
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/unsend_message/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('unsendMessage', err);
-				return callback(err);
-			});
-	}
-
 	/**
 	 * @param callback Function that's called on every received message
 	 * @returns Function that when called, stops listening
@@ -371,6 +346,15 @@ export default class Api {
 		if (!this.ctx.mqttClient) return;
 		this.ctx.mqttClient.end();
 		this.ctx.mqttClient = undefined;
+	}
+
+	/** This value indicates whether the API listens for events and is able to send messages.
+	 * This property is true if `API.listen` method was invoked. */
+	get isActive(): boolean {
+		return !!this.ctx.mqttClient;
+	}
+	private checkForActiveState() {
+		if (!this.isActive) throw new Error('This function requires the function Api.listen() to be called first');
 	}
 
 	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
@@ -844,31 +828,18 @@ export default class Api {
 	 * @param callback Will be called when the message was successfully sent or rejected
 	 * @param replyToMessage ID of a message this message replies to
 	 */
-	sendMessage(
-		msg: OutgoingMessage,
-		threadID: ThreadID | ThreadID[],
-		callback = (err?: { error: string }) => {},
-		replyToMessage?: MessageID
-	): void {
-		const messageOTID = utils.generateOfflineThreadingID();
-		const wsContent = {
-			request_id: 25,
-			type: 3,
-			payload:
-				// `{"version_id":"3816854585040595","tasks":[{"label":"46","payload":"{\\"thread_id\\":100011977722167,\\"otid\\":\\"6762765770304308196\\",\\"source\\":65537,\\"send_type\\":1,\\"text\\":\\"wertyuio\\"}","queue_name":"100011977722167","task_id":14,"failure_count":null},{"label":"21","payload":"{\\"thread_id\\":100011977722167,\\"last_read_watermark_ts\\":1612369005752}","queue_name":"100011977722167","task_id":15,"failure_count":null}],"epoch_id":6762765770467264064,"data_trace_id":null}`,
-				`{"version_id":"3816854585040595","tasks":[{"label":"46","payload":"{\\"thread_id\\":${threadID},\\"otid\\":\\"${messageOTID}\\",\\"source\\":65537,\\"send_type\\":1,\\"text\\":\\"${
-					msg.body
-				}\\"}","queue_name":"${threadID}","task_id":14,"failure_count":null},{"label":"21","payload":"{\\"thread_id\\":${threadID},\\"last_read_watermark_ts\\":${new Date().getTime()}}","queue_name":"${threadID}","task_id":15,"failure_count":null}],"epoch_id":6762765770467264064,"data_trace_id":null}`,
-			app_id: '772021112871879'
-			// TODO: epoch_id & app_id
-		};
-		this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(wsContent), {}, (err: any, packet: any) => {
-			console.log(err, packet);
-		});
+	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback = (err?: any) => {}): void {
+		this.checkForActiveState();
 
-		// new OutgoingMessageHandler(this.ctx, this._defaultFuncs).handleAll(msg, form, callback, () =>
-		// 	this.send(form, threadID, messageAndOTID, callback)
-		// );
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs);
+		handler.handleAllAttachments(msg, threadID, (err, websocketContent) => {
+			if (err) return callback(err);
+
+			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
+				console.log(err, packet);
+				callback(err);
+			});
+		});
 	}
 
 	private send(

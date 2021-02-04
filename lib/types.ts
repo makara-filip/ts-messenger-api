@@ -80,8 +80,12 @@ export interface MessHeaders {
 
 /** Message can only be a regular message (`body` field set) and optionally one of a `sticker`, `attachment` or `url` */
 export interface OutgoingMessage {
+	/** a plain-text content of the outgoing message */
 	body?: string;
+	/** Readable stream(s) to be sent as attachments. Can be any file, image, voiceclip... */
 	attachment?: stream.Readable | stream.Readable[];
+	/** message ID to which this new message would respond */
+	replyToMessage?: MessageID;
 	url?: string;
 	/** ID of the desired sticker */
 	sticker?: string;
