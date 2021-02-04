@@ -366,6 +366,13 @@ export default class Api {
 		});
 	}
 
+	/** This function disables the websocket connection and, consequently, disables message sending and receiving. */
+	stopListening(): void {
+		if (!this.ctx.mqttClient) return;
+		this.ctx.mqttClient.end();
+		this.ctx.mqttClient = undefined;
+	}
+
 	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const that = this;
