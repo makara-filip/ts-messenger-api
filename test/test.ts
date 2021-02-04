@@ -97,10 +97,19 @@ describe('Fundamental API functioning', function () {
 						expect((event2 as Message).body, 'incoming text message did not contain expected content').to.include(
 							messageBody
 						);
+						api1.stopListening();
+						api2.stopListening();
 						done();
 					}
 				});
 			}
 		});
+
+		// finally, check if the `listen` methods are terminated after some timeout
+		setTimeout(() => {
+			if (!(api1.ctx.mqttClient || api1.ctx.mqttClient)) return; // both apis are suspended
+			api1.stopListening();
+			api2.stopListening();
+		}, 60000); // 1 minute
 	});
 });
