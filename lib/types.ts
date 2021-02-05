@@ -88,7 +88,7 @@ export interface OutgoingMessage {
 	replyToMessage?: MessageID;
 	url?: string;
 	/** ID of the desired sticker */
-	sticker?: string;
+	sticker?: number;
 	emoji?: string;
 	emojiSize?: 'small' | 'medium' | 'large';
 	mentions?: {

@@ -33,17 +33,23 @@ export class OutgoingMessageHandler {
 	// 	}
 	// }
 
-	// private handleSticker(
-	// 	msg: OutgoingMessage,
-	// 	form: RequestForm,
-	// 	callback: (err?: { error: string }) => void,
-	// 	cb: () => void
-	// ): void {
-	// 	if (msg.sticker) {
-	// 		form['sticker_id'] = msg.sticker;
-	// 	}
-	// 	cb();
-	// }
+	private handleSticker(msg: OutgoingMessage, threadID: ThreadID): void {
+		if (msg.sticker) {
+			this.websocketContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID, // here
+					otid: utils.generateOfflineThreadingID(), // here
+					source: 0,
+					send_type: OutgoingMessageSendType.Sticker,
+					sticker_id: msg.sticker // <-- here
+				}),
+				queue_name: threadID.toString(), // here
+				task_id: 32,
+				failure_count: null
+			});
+		}
+	}
 
 	// private handleEmoji(
 	// 	msg: OutgoingMessage,
@@ -100,9 +106,8 @@ export class OutgoingMessageHandler {
 		} else callback();
 	}
 
-	private handlePlainText(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: any) => void): void {
+	private handlePlainText(msg: OutgoingMessage, threadID: ThreadID): void {
 		if (msg.body && !msg.attachment) {
-			// TODO: handle also the mentions
 			this.websocketContent.payload.tasks.push({
 				label: '46',
 				payload: JSON.stringify({
@@ -117,7 +122,6 @@ export class OutgoingMessageHandler {
 				failure_count: null
 			});
 		}
-		callback();
 	}
 
 	// private handleMention(
@@ -161,7 +165,7 @@ export class OutgoingMessageHandler {
 		payload: {
 			// this payload will be json-stringified
 			version_id: '3816854585040595',
-			tasks: [],
+			tasks: [], // all tasks will be added here
 			epoch_id: 6763184801413415579,
 			data_trace_id: null
 		},
@@ -174,23 +178,17 @@ export class OutgoingMessageHandler {
 		threadID: ThreadID,
 		callback: (err?: any, websocketContent?: any) => void
 	): void {
-		this.handleAttachment(
-			msg,
-			threadID,
-			() =>
-				this.handlePlainText(msg, threadID, () => {
-					// this.handleSticker(msg, errorCallback, () =>
-					// this.handleUrl(msg, errorCallback, () =>
-					// this.handleEmoji(msg, errorCallback, () => this.handleMention(msg, errorCallback, () => {}))
+		this.handleAttachment(msg, threadID, () => {
+			this.handlePlainText(msg, threadID);
+			this.handleSticker(msg, threadID);
+			// this.handleUrl(msg, errorCallback, () =>
+			// this.handleEmoji(msg, errorCallback, () => this.handleMention(msg, errorCallback, () => {}))
 
-					// finally, stringify the last payload - as Facebook requires
-					this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
+			// finally, stringify the last payload - as (slightly retarded) Facebook requires
+			this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
 
-					callback(null, this.websocketContent);
-				})
-			// )
-			// )
-		);
+			callback(null, this.websocketContent);
+		});
 	}
 
 	// private getUrl(url: string, callback: (err?: { error: string }, params?: any) => void): void {
