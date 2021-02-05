@@ -77,7 +77,6 @@ export interface MessHeaders {
 	Connection?: string;
 }
 
-
 /** Message can only be a regular message (`body` field set) and optionally one of a `sticker`, `attachment` or `url` */
 export interface OutgoingMessage {
 	/** a plain-text content of the outgoing message */
@@ -91,14 +90,16 @@ export interface OutgoingMessage {
 	sticker?: number;
 	emoji?: string;
 	emojiSize?: 'small' | 'medium' | 'large';
-	mentions?: {
-		/** Text, that should be highlighted in the mension */
-		tag: string;
-		/** ID of the user being mentioned */
-		id: string;
-		/** Index, from where to start searching the `tag` value in `body` */
-		fromIndex?: number;
-	}[];
+	/** Additional information when sending a message with user mentions.
+	 * This property contains sorted "name & id" pairs. */
+	mentions?: OutgoingMessageUserMention[];
+}
+
+export interface OutgoingMessageUserMention {
+	/** text which will be referenced to mentioned user (usually starting with the @ (at) sign) */
+	name: string;
+	/** ID of the user being mentioned */
+	id: UserID;
 }
 
 interface MessageBase {

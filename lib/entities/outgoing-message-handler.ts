@@ -107,7 +107,8 @@ export class OutgoingMessageHandler {
 	}
 
 	private handlePlainText(msg: OutgoingMessage, threadID: ThreadID): void {
-		if (msg.body && !msg.attachment) {
+		// handle this only when there are no other properties, because they are handled in other methods
+		if (msg.body && !msg.attachment && !msg.mentions) {
 			this.websocketContent.payload.tasks.push({
 				label: '46',
 				payload: JSON.stringify({
@@ -124,40 +125,50 @@ export class OutgoingMessageHandler {
 		}
 	}
 
-	// private handleMention(
-	// 	msg: OutgoingMessage,
-	// 	form: RequestForm,
-	// 	callback: (err?: { error: string }) => void,
-	// 	cb: () => void
-	// ): void {
-	// 	if (msg.mentions && msg.body) {
-	// 		for (let i = 0; i < msg.mentions.length; i++) {
-	// 			const mention = msg.mentions[i];
+	private handleMentions(msg: OutgoingMessage, threadID: ThreadID) {
+		if (msg.mentions && msg.body) {
+			this.websocketContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID,
+					otid: utils.generateOfflineThreadingID(),
+					source: 0,
+					send_type: OutgoingMessageSendType.PlainText,
+					text: msg.body,
+					// mention information:
+					mention_data: {
+						mention_ids: msg.mentions.map(m => m.id).join(),
+						mention_offsets: this.mentionsGetOffsetRecursive(
+							msg.body,
+							msg.mentions.map(m => m.name)
+						).join(),
+						mention_lengths: msg.mentions.map(m => m.name.length).join(),
+						mention_types: msg.mentions.map(() => 'p').join()
+					}
+				}),
+				queue_name: '3795369260500252',
+				task_id: 46,
+				failure_count: null
+			});
+		}
+	}
+	/** This recursive method gets all the offsets (indexes) of the searched values one-by-one.
+	 * This method is recursive, so it can find the same substring at different positions. */
+	private mentionsGetOffsetRecursive(text: string, searchForValues: string[]): number[] {
+		const index = text.indexOf(searchForValues[0]);
+		if (index === -1) throw new Error('There was a problem finding the offset - no such text found');
 
-	// 			const tag = mention.tag;
-	// 			if (typeof tag !== 'string') {
-	// 				return callback({ error: 'Mention tags must be strings.' });
-	// 			}
-
-	// 			const offset = msg.body.indexOf(tag, mention.fromIndex || 0);
-
-	// 			if (offset < 0) {
-	// 				log.warn('handleMention', 'Mention for "' + tag + '" not found in message string.');
-	// 			}
-
-	// 			if (mention.id == null) {
-	// 				log.warn('handleMention', 'Mention id should be non-null.');
-	// 			}
-
-	// 			const id = mention.id || 0;
-	// 			form['profile_xmd[' + i + '][offset]'] = offset;
-	// 			form['profile_xmd[' + i + '][length]'] = tag.length;
-	// 			form['profile_xmd[' + i + '][id]'] = id;
-	// 			form['profile_xmd[' + i + '][type]'] = 'p';
-	// 		}
-	// 	}
-	// 	cb();
-	// }
+		if (searchForValues.length == 1) {
+			// this is the final mention search
+			return [index];
+		} else {
+			// we have still another mention string - so we provide substring & subarray
+			const newStartIndex = index + searchForValues[0].length;
+			return [index].concat(
+				this.mentionsGetOffsetRecursive(text.slice(newStartIndex), searchForValues.slice(1)).map(i => i + newStartIndex)
+			);
+		}
+	}
 
 	websocketContent: any = {
 		request_id: 166,
@@ -178,9 +189,10 @@ export class OutgoingMessageHandler {
 		threadID: ThreadID,
 		callback: (err?: any, websocketContent?: any) => void
 	): void {
+		this.handlePlainText(msg, threadID);
+		this.handleSticker(msg, threadID);
+		this.handleMentions(msg, threadID);
 		this.handleAttachment(msg, threadID, () => {
-			this.handlePlainText(msg, threadID);
-			this.handleSticker(msg, threadID);
 			// this.handleUrl(msg, errorCallback, () =>
 			// this.handleEmoji(msg, errorCallback, () => this.handleMention(msg, errorCallback, () => {}))
 
