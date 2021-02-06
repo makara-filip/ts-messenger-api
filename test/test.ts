@@ -85,12 +85,6 @@ describe('Fundamental API functioning', function () {
 	it('should have both the test accounts activated', () => {
 		expect(api1.isActive, 'the first api was not activated').to.be.true;
 		expect(api2.isActive, 'the second api was not activated').to.be.true;
-
-		// after some timeout, suspended the apis
-		setTimeout(() => {
-			api1?.stopListening();
-			api2?.stopListening();
-		}, 60000); // 1 minute
 	});
 
 	it('sends a text message and recieves it in another account', done => {
@@ -172,7 +166,7 @@ describe('Fundamental API functioning', function () {
 		// send the actual message
 		messageWasSent = true;
 		api1.sendMessage(
-			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/audio.jpg')) },
+			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/audio.mp3')) },
 			api2.ctx.userID,
 			err => expect(err).to.not.exist
 		);
@@ -200,13 +194,16 @@ describe('Fundamental API functioning', function () {
 		// send the actual message
 		messageWasSent = true;
 		api1.sendMessage(
-			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/video.mp3')) },
+			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/video.mp4')) },
 			api2.ctx.userID,
 			err => expect(err).to.not.exist
 		);
 	});
 
 	after(() => {
+		api1?.stopListening();
+		api2?.stopListening();
+
 		const endTime: Date = new Date();
 		console.log(
 			`The tests have completed. Timestamp: ${endTime.getTime()}. Duration: ${

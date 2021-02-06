@@ -54,6 +54,7 @@ export default class Api {
 	};
 	private chatOn = true;
 	private foreground = false;
+	private task_id = 1; // in websocket
 
 	constructor(defaultFuncs: Dfs, ctx: ApiCtx) {
 		this.ctx = ctx;
@@ -246,7 +247,7 @@ export default class Api {
 
 		const mqttClient = this.ctx.mqttClient;
 
-		mqttClient.on('error', function (err) {
+		mqttClient.on('error', (err: any) => {
 			//TODO: This was modified
 			log.error('err', err.message);
 			mqttClient.end();
@@ -282,6 +283,7 @@ export default class Api {
 		mqttClient.on('message', (topic, message) => {
 			//TODO: This was modified
 			const jsonMessage = JSON.parse(message.toString());
+			// if (jsonMessage?.deltas) console.log(jsonMessage?.deltas[0]?.requestContext);
 			if (topic === '/t_ms') {
 				if (jsonMessage.firstDeltaSeqId && jsonMessage.syncToken) {
 					this.ctx.lastSeqId = jsonMessage.firstDeltaSeqId;
@@ -336,8 +338,9 @@ export default class Api {
 			}
 		});
 
-		mqttClient.on('close', function () {
+		mqttClient.on('close', () => {
 			// client.end();
+			// console.log('CLOSED');
 		});
 	}
 
@@ -826,17 +829,16 @@ export default class Api {
 	 * @param msg Contents of the message
 	 * @param threadID ID of a thread to send the message to
 	 * @param callback Will be called when the message was successfully sent or rejected
-	 * @param replyToMessage ID of a message this message replies to
 	 */
-	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback = (err?: any) => {}): void {
+	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback: (err: unknown) => void = () => {}): void {
 		this.checkForActiveState();
 
-		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs);
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
 		handler.handleAllAttachments(msg, threadID, (err, websocketContent) => {
 			if (err) return callback(err);
 
 			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
-				console.log(err, packet);
+				// console.log(err, packet);
 				callback(err);
 			});
 		});
@@ -846,7 +848,7 @@ export default class Api {
 		this.checkForActiveState();
 
 		// forwarding messages uses the websocket connection
-		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs);
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
 		handler.forwardMessage(messageID, threadID, (err, websocketContent) => {
 			if (err) return callback(err);
 

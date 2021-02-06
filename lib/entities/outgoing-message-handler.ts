@@ -26,7 +26,7 @@ export class OutgoingMessageHandler {
 					sticker_id: msg.sticker // <-- here
 				}),
 				queue_name: threadID.toString(), // here
-				task_id: 32,
+				task_id: this.task_id,
 				failure_count: null
 			});
 		}
@@ -53,7 +53,7 @@ export class OutgoingMessageHandler {
 							attachment_fbids: [attID] // here is the actual attachment ID
 						}),
 						queue_name: threadID.toString(),
-						task_id: 36, // TODO: finish this (increments each time)
+						task_id: this.task_id,
 						failure_count: null
 					});
 				});
@@ -75,7 +75,7 @@ export class OutgoingMessageHandler {
 					text: msg.body ? msg.body : null
 				}),
 				queue_name: threadID.toString(),
-				task_id: 35, // TODO: finish this (increments each time)
+				task_id: this.task_id,
 				failure_count: null
 			});
 		}
@@ -103,7 +103,7 @@ export class OutgoingMessageHandler {
 					}
 				}),
 				queue_name: '3795369260500252',
-				task_id: 46,
+				task_id: this.task_id,
 				failure_count: null
 			});
 		}
@@ -138,7 +138,7 @@ export class OutgoingMessageHandler {
 		},
 		app_id: '772021112871879'
 	};
-	constructor(private ctx: ApiCtx, private _defaultFuncs: Dfs) {}
+	constructor(private ctx: ApiCtx, private _defaultFuncs: Dfs, private task_id: number) {}
 
 	handleAllAttachments(
 		msg: OutgoingMessage,
@@ -210,7 +210,7 @@ export class OutgoingMessageHandler {
 				forwarded_msg_id: messageID
 			}),
 			queue_name: threadID.toString(),
-			task_id: 20,
+			task_id: this.task_id,
 			failure_count: null
 		});
 
