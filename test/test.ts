@@ -119,10 +119,13 @@ describe('Fundamental API functioning', function () {
 	});
 
 	it('should get thread history', done => {
-		api1.getThreadHistory('100062179963285', 20, undefined, (err, history) => {
+		api1.getThreadHistory('100041399284084', 20, undefined, (err, history) => {
 			expect(err).to.be.null;
-			expect(history.length).to.be.equal(20);
-			expect(history[0]).to.not.be.empty;
+			expect(history).to.exist;
+			if (history) {
+				expect(history.length).to.be.equal(20);
+				expect(history[0]).to.not.be.empty;
+			}
 			done();
 		});
 	});
