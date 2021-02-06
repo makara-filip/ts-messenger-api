@@ -28,6 +28,7 @@
 	"dependencies": {
 		"bluebird": "^3.7.2",
 		"cheerio": "^1.0.0-rc.5",
+		"events": "^3.2.0",
 		"mqtt": "^4.2.6",
 		"npmlog": "^4.1.2",
 		"request": "^2.88.2",
@@ -38,6 +39,7 @@
 	"devDependencies": {
 		"@types/bluebird": "^3.5.33",
 		"@types/chai": "^4.2.14",
+		"@types/events": "^3.0.0",
 		"@types/mocha": "^8.2.0",
 		"@types/npmlog": "^4.1.2",
 		"@types/request": "^2.48.5",
