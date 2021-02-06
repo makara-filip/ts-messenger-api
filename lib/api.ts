@@ -842,6 +842,21 @@ export default class Api {
 		});
 	}
 
+	forwardMessage(messageID: MessageID, threadID: ThreadID, callback: (err: unknown) => void): void {
+		this.checkForActiveState();
+
+		// forwarding messages uses the websocket connection
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs);
+		handler.forwardMessage(messageID, threadID, (err, websocketContent) => {
+			if (err) return callback(err);
+
+			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
+				// console.log(err, packet);
+				callback(err);
+			});
+		});
+	}
+
 	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoGeneralDictByUserId) => void): void {
 		if (!callback) {
 			throw { error: 'getUserInfo: need callback' };

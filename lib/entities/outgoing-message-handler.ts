@@ -1,6 +1,6 @@
 import stream from 'stream';
 import log from 'npmlog';
-import { ApiCtx, Dfs, OutgoingMessage } from '../types';
+import { ApiCtx, Dfs, MessageID, OutgoingMessage } from '../types';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from '../types/upload-attachment-response';
 import * as utils from '../utils';
 import { ThreadID } from '../types/threads';
@@ -8,31 +8,12 @@ import { ThreadID } from '../types/threads';
 export enum OutgoingMessageSendType {
 	PlainText = 1,
 	Sticker = 2,
-	Attachment = 3
+	Attachment = 3,
+	// something = 4,
+	ForwardMessage = 5
 }
 
 export class OutgoingMessageHandler {
-	// private handleUrl(
-	// 	msg: OutgoingMessage,
-	// 	form: RequestForm,
-	// 	callback: (err?: { error: string }) => void,
-	// 	cb: () => void
-	// ): void {
-	// 	if (msg.url) {
-	// 		form['shareable_attachment[share_type]'] = '100';
-	// 		this.getUrl(msg.url, function (err, params) {
-	// 			if (err) {
-	// 				return callback(err);
-	// 			}
-
-	// 			form['shareable_attachment[share_params]'] = params;
-	// 			cb();
-	// 		});
-	// 	} else {
-	// 		cb();
-	// 	}
-	// }
-
 	private handleSticker(msg: OutgoingMessage, threadID: ThreadID): void {
 		if (msg.sticker) {
 			this.websocketContent.payload.tasks.push({
@@ -50,31 +31,6 @@ export class OutgoingMessageHandler {
 			});
 		}
 	}
-
-	// private handleEmoji(
-	// 	msg: OutgoingMessage,
-	// 	form: RequestForm,
-	// 	callback: (err?: { error: string }) => void,
-	// 	cb: () => void
-	// ): void {
-	// 	if (msg.emojiSize != null && msg.emoji == null) {
-	// 		return callback({ error: 'emoji property is empty' });
-	// 	}
-	// 	if (msg.emoji) {
-	// 		if (msg.emojiSize == null) {
-	// 			msg.emojiSize = 'medium';
-	// 		}
-	// 		if (msg.emojiSize != 'small' && msg.emojiSize != 'medium' && msg.emojiSize != 'large') {
-	// 			return callback({ error: 'emojiSize property is invalid' });
-	// 		}
-	// 		if (form['body'] != null && form['body'] != '') {
-	// 			return callback({ error: 'body is not empty' });
-	// 		}
-	// 		form['body'] = msg.emoji;
-	// 		form['tags[0]'] = 'hot_emoji_size:' + msg.emojiSize;
-	// 	}
-	// 	cb();
-	// }
 
 	private handleAttachment(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: any) => void): void {
 		if (msg.attachment) {
@@ -203,33 +159,6 @@ export class OutgoingMessageHandler {
 		});
 	}
 
-	// private getUrl(url: string, callback: (err?: { error: string }, params?: any) => void): void {
-	// 	const form = {
-	// 		image_height: 960,
-	// 		image_width: 960,
-	// 		uri: url
-	// 	};
-
-	// 	this._defaultFuncs
-	// 		.post('https://www.facebook.com/message_share_attachment/fromURI/', this.ctx.jar, form)
-	// 		.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-	// 		.then((resData: any) => {
-	// 			if (resData.error) {
-	// 				return callback(resData);
-	// 			}
-
-	// 			if (!resData.payload) {
-	// 				return callback({ error: 'Invalid url' });
-	// 			}
-
-	// 			callback(undefined, resData.payload.share_data.share_params);
-	// 		})
-	// 		.catch((err: any) => {
-	// 			log.error('getUrl', err);
-	// 			return callback(err);
-	// 		});
-	// }
-
 	private uploadAttachment(
 		attachments: stream.Readable[],
 		callback: (err?: any, files?: UploadGeneralAttachmentResponse[]) => void
@@ -262,5 +191,31 @@ export class OutgoingMessageHandler {
 				log.error('uploadAttachment', err);
 				return callback(err);
 			});
+	}
+
+	forwardMessage(
+		messageID: MessageID,
+		threadID: ThreadID,
+		callback: (err?: unknown, websocketContent?: unknown) => void
+	): void {
+		if (!messageID || !threadID) callback(new Error('Invalid input to forwardMessage method'), undefined);
+
+		this.websocketContent.payload.tasks.push({
+			label: '46',
+			payload: JSON.stringify({
+				thread_id: threadID,
+				otid: utils.generateOfflineThreadingID(),
+				source: 65536,
+				send_type: OutgoingMessageSendType.ForwardMessage,
+				forwarded_msg_id: messageID
+			}),
+			queue_name: threadID.toString(),
+			task_id: 20,
+			failure_count: null
+		});
+
+		// finally, stringify the payload property - as (slightly retarded) Facebook requires
+		this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
+		callback(null, this.websocketContent);
 	}
 }
