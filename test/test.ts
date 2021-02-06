@@ -62,6 +62,7 @@ describe('Fundamental API functioning', function () {
 			else oneDone = true;
 		});
 	});
+
 	it('sends a message and recieves it in another account', done => {
 		// TODO: add some time to the timeout of this test (if possible)
 		// because this test lasts sometimes longer than default 15s
@@ -115,6 +116,15 @@ describe('Fundamental API functioning', function () {
 			api2.stopListening();
 			console.log('The apis `listen` methods have been forcefully terminated after the timeout.');
 		}, 60000); // 1 minute
+	});
+
+	it('should get thread history', done => {
+		api1.getThreadHistory('100062179963285', 20, undefined, (err, history) => {
+			expect(err).to.be.null;
+			expect(history.length).to.be.equal(20);
+			expect(history[0]).to.not.be.empty;
+			done();
+		});
 	});
 
 	after(() => {
