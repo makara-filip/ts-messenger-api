@@ -82,6 +82,7 @@ describe('Fundamental API functioning', function () {
 			emitter.emit('event', event);
 		});
 	});
+  
 	it('should have both the test accounts activated', () => {
 		expect(api1.isActive, 'the first api was not activated').to.be.true;
 		expect(api2.isActive, 'the second api was not activated').to.be.true;
@@ -115,6 +116,7 @@ describe('Fundamental API functioning', function () {
 			err => expect(err).to.not.exist
 		);
 	});
+  
 	it('sends an image attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
@@ -143,6 +145,7 @@ describe('Fundamental API functioning', function () {
 			err => expect(err).to.not.exist
 		);
 	});
+  
 	it('sends an audio attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
@@ -171,6 +174,7 @@ describe('Fundamental API functioning', function () {
 			err => expect(err).to.not.exist
 		);
 	});
+  
 	it('sends a video attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
@@ -198,6 +202,18 @@ describe('Fundamental API functioning', function () {
 			api2.ctx.userID,
 			err => expect(err).to.not.exist
 		);
+	});
+
+	it('should get thread history', done => {
+		api1.getThreadHistory('100041399284084', 20, undefined, (err, history) => {
+			expect(err).to.be.null;
+			expect(history).to.exist;
+			if (history) {
+				expect(history.length).to.be.equal(20);
+				expect(history[0]).to.not.be.empty;
+			}
+			done();
+		});
 	});
 
 	after(() => {
