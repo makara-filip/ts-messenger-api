@@ -32,15 +32,16 @@ export class OutgoingMessageHandler {
 		}
 	}
 
-	private handleAttachment(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: any) => void): void {
+	private handleAttachment(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: unknown) => void): void {
 		if (msg.attachment) {
 			if (!(msg.attachment instanceof Array)) msg.attachment = [msg.attachment];
 
 			this.uploadAttachment(msg.attachment, (err, files) => {
 				if (err) return callback(err);
+				if (!files) return callback();
 
-				const attachmentIDs = files?.map(file => getAttachmentID(file));
-				attachmentIDs?.forEach(attID => {
+				const attachmentIDs = files.map(file => getAttachmentID(file));
+				attachmentIDs.forEach(attID => {
 					// for each attachment id, create a new task and place it in the websocketContent
 					this.websocketContent.payload.tasks.push({
 						label: '46',
@@ -102,7 +103,7 @@ export class OutgoingMessageHandler {
 						mention_types: msg.mentions.map(() => 'p').join()
 					}
 				}),
-				queue_name: '3795369260500252',
+				queue_name: threadID.toString(),
 				task_id: this.task_id,
 				failure_count: null
 			});
@@ -126,7 +127,7 @@ export class OutgoingMessageHandler {
 		}
 	}
 
-	websocketContent: any = {
+	private websocketContent: any = {
 		request_id: 166,
 		type: 3,
 		payload: {
@@ -143,25 +144,23 @@ export class OutgoingMessageHandler {
 	handleAllAttachments(
 		msg: OutgoingMessage,
 		threadID: ThreadID,
-		callback: (err?: any, websocketContent?: any) => void
+		callback: (err: unknown, websocketContent?: unknown) => void
 	): void {
 		this.handlePlainText(msg, threadID);
 		this.handleSticker(msg, threadID);
 		this.handleMentions(msg, threadID);
-		this.handleAttachment(msg, threadID, () => {
-			// this.handleUrl(msg, errorCallback, () =>
-			// this.handleEmoji(msg, errorCallback, () => this.handleMention(msg, errorCallback, () => {}))
+		this.handleAttachment(msg, threadID, err => {
+			if (err) return callback(err);
 
 			// finally, stringify the last payload - as (slightly retarded) Facebook requires
 			this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
-
 			callback(null, this.websocketContent);
 		});
 	}
 
 	private uploadAttachment(
 		attachments: stream.Readable[],
-		callback: (err?: any, files?: UploadGeneralAttachmentResponse[]) => void
+		callback: (err: unknown, files?: UploadGeneralAttachmentResponse[]) => void
 	): void {
 		const uploadingPromises = attachments.map(att => {
 			if (!utils.isReadableStream(att))
@@ -196,9 +195,9 @@ export class OutgoingMessageHandler {
 	forwardMessage(
 		messageID: MessageID,
 		threadID: ThreadID,
-		callback: (err?: unknown, websocketContent?: unknown) => void
+		callback: (err: unknown, websocketContent?: unknown) => void
 	): void {
-		if (!messageID || !threadID) callback(new Error('Invalid input to forwardMessage method'), undefined);
+		if (!messageID || !threadID) callback(new Error('Invalid input to forwardMessage method'));
 
 		this.websocketContent.payload.tasks.push({
 			label: '46',
