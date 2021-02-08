@@ -55,6 +55,7 @@ export default class Api {
 	};
 	private chatOn = true;
 	private foreground = false;
+	private task_id = 1; // in websocket
 
 	constructor(defaultFuncs: Dfs, ctx: ApiCtx) {
 		this.ctx = ctx;
@@ -133,31 +134,6 @@ export default class Api {
 			})
 			.catch(function (err) {
 				log.error('deleteMessage', err);
-				return callback(err);
-			});
-	}
-
-	unsendMessage(messageID: MessageID, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-
-		const form = {
-			message_id: messageID
-		};
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/unsend_message/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('unsendMessage', err);
 				return callback(err);
 			});
 	}
@@ -272,7 +248,7 @@ export default class Api {
 
 		const mqttClient = this.ctx.mqttClient;
 
-		mqttClient.on('error', function (err) {
+		mqttClient.on('error', (err: any) => {
 			//TODO: This was modified
 			log.error('err', err.message);
 			mqttClient.end();
@@ -308,6 +284,7 @@ export default class Api {
 		mqttClient.on('message', (topic, message) => {
 			//TODO: This was modified
 			const jsonMessage = JSON.parse(message.toString());
+			// if (jsonMessage?.deltas) console.log(jsonMessage?.deltas[0]?.requestContext);
 			if (topic === '/t_ms') {
 				if (jsonMessage.firstDeltaSeqId && jsonMessage.syncToken) {
 					this.ctx.lastSeqId = jsonMessage.firstDeltaSeqId;
@@ -362,8 +339,9 @@ export default class Api {
 			}
 		});
 
-		mqttClient.on('close', function () {
+		mqttClient.on('close', () => {
 			// client.end();
+			// console.log('CLOSED');
 		});
 	}
 
@@ -372,6 +350,15 @@ export default class Api {
 		if (!this.ctx.mqttClient) return;
 		this.ctx.mqttClient.end();
 		this.ctx.mqttClient = undefined;
+	}
+
+	/** This value indicates whether the API listens for events and is able to send messages.
+	 * This property is true if `API.listen` method was invoked. */
+	get isActive(): boolean {
+		return !!this.ctx.mqttClient;
+	}
+	private checkForActiveState() {
+		if (!this.isActive) throw new Error('This function requires the function Api.listen() to be called first');
 	}
 
 	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
@@ -843,126 +830,34 @@ export default class Api {
 	 * @param msg Contents of the message
 	 * @param threadID ID of a thread to send the message to
 	 * @param callback Will be called when the message was successfully sent or rejected
-	 * @param replyToMessage ID of a message this message replies to
 	 */
-	sendMessage(
-		msg: OutgoingMessage,
-		threadID: ThreadID | ThreadID[],
-		callback = (err?: { error: string }) => {},
-		replyToMessage?: MessageID
-	): void {
-		const messageOTID = utils.generateOfflineThreadingID();
-		const wsContent = {
-			request_id: 25,
-			type: 3,
-			payload:
-				// `{"version_id":"3816854585040595","tasks":[{"label":"46","payload":"{\\"thread_id\\":100011977722167,\\"otid\\":\\"6762765770304308196\\",\\"source\\":65537,\\"send_type\\":1,\\"text\\":\\"wertyuio\\"}","queue_name":"100011977722167","task_id":14,"failure_count":null},{"label":"21","payload":"{\\"thread_id\\":100011977722167,\\"last_read_watermark_ts\\":1612369005752}","queue_name":"100011977722167","task_id":15,"failure_count":null}],"epoch_id":6762765770467264064,"data_trace_id":null}`,
-				`{"version_id":"3816854585040595","tasks":[{"label":"46","payload":"{\\"thread_id\\":${threadID},\\"otid\\":\\"${messageOTID}\\",\\"source\\":65537,\\"send_type\\":1,\\"text\\":\\"${
-					msg.body
-				}\\"}","queue_name":"${threadID}","task_id":14,"failure_count":null},{"label":"21","payload":"{\\"thread_id\\":${threadID},\\"last_read_watermark_ts\\":${new Date().getTime()}}","queue_name":"${threadID}","task_id":15,"failure_count":null}],"epoch_id":6762765770467264064,"data_trace_id":null}`,
-			app_id: '772021112871879'
-			// TODO: epoch_id & app_id
-		};
-		this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(wsContent), {}, (err: any, packet: any) => {
-			console.log(err, packet);
+	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback: (err: unknown) => void = () => {}): void {
+		this.checkForActiveState();
+
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
+		handler.handleAllAttachments(msg, threadID, (err, websocketContent) => {
+			if (err) return callback(err);
+
+			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
+				// console.log(err, packet);
+				callback(err);
+			});
 		});
-
-		// new OutgoingMessageHandler(this.ctx, this._defaultFuncs).handleAll(msg, form, callback, () =>
-		// 	this.send(form, threadID, messageAndOTID, callback)
-		// );
 	}
 
-	private send(
-		form: RequestForm,
-		threadID: ThreadID | ThreadID[],
-		messageAndOTID: string,
-		callback: (err?: { error: string } | undefined) => void
-	) {
-		// We're doing a query to this to check if the given id is the id of
-		// a user or of a group chat. The form will be different depending
-		// on that.
-		if (utils.getType(threadID) === 'Array') {
-			this.sendContent(form, threadID, false, messageAndOTID, callback);
-		} else {
-			this.getUserInfo(threadID, (err, res) => {
-				if (err) {
-					return callback(err);
-				}
-				if (res) {
-					this.sendContent(form, threadID, Object.keys(res).length > 0, messageAndOTID, callback);
-				} else {
-					throw new Error('Fatal');
-				}
+	forwardMessage(messageID: MessageID, threadID: ThreadID, callback: (err: unknown) => void): void {
+		this.checkForActiveState();
+
+		// forwarding messages uses the websocket connection
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
+		handler.forwardMessage(messageID, threadID, (err, websocketContent) => {
+			if (err) return callback(err);
+
+			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
+				// console.log(err, packet);
+				callback(err);
 			});
-		}
-	}
-	private sendContent(
-		form: RequestForm,
-		threadID: ThreadID | ThreadID[],
-		isSingleUser: boolean,
-		messageAndOTID: string,
-		callback: (err?: { error: string } | undefined) => void
-	) {
-		// There are three cases here:
-		// 1. threadID is of type array, where we're starting a new group chat with users
-		//    specified in the array.
-		// 2. User is sending a message to a specific user.
-		// 3. No additional form params and the message goes to an existing group chat.
-		if (threadID instanceof Array) {
-			for (let i = 0; i < threadID.length; i++) {
-				form['specific_to_list[' + i + ']'] = 'fbid:' + threadID[i];
-			}
-			form['specific_to_list[' + threadID.length + ']'] = 'fbid:' + this.ctx.userID;
-			form['client_thread_id'] = 'root:' + messageAndOTID;
-			log.info('sendMessage', 'Sending message to multiple users: ' + threadID);
-		} else {
-			// This means that threadID is the id of a user, and the chat
-			// is a single person chat
-			if (isSingleUser) {
-				form['specific_to_list[0]'] = 'fbid:' + threadID;
-				form['specific_to_list[1]'] = 'fbid:' + this.ctx.userID;
-				form['other_user_fbid'] = threadID;
-			} else {
-				form['thread_fbid'] = threadID;
-			}
-		}
-
-		if (this.ctx.globalOptions.pageID) {
-			form['author'] = 'fbid:' + this.ctx.globalOptions.pageID;
-			form['specific_to_list[1]'] = 'fbid:' + this.ctx.globalOptions.pageID;
-			form['creator_info[creatorID]'] = this.ctx.userID;
-			form['creator_info[creatorType]'] = 'direct_admin';
-			form['creator_info[labelType]'] = 'sent_message';
-			form['creator_info[pageID]'] = this.ctx.globalOptions.pageID;
-			form['request_user_id'] = this.ctx.globalOptions.pageID;
-			form['creator_info[profileURI]'] = 'https://www.facebook.com/profile.php?id=' + this.ctx.userID;
-		}
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/send/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (!resData) {
-					return callback({ error: 'Send message failed.' });
-				}
-
-				if (resData.error) {
-					if (resData.error === 1545012) {
-						log.warn(
-							'sendMessage',
-							"Got error 1545012. This might mean that you're not part of the conversation " + threadID
-						);
-					}
-					return callback(resData);
-				}
-
-				//TODO: THIS WAS MODIFIED
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('sendMessage', err);
-				return callback(err);
-			});
+		});
 	}
 
 	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoGeneralDictByUserId) => void): void {

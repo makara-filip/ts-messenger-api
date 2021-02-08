@@ -1,223 +1,220 @@
-import bluebird from 'bluebird';
 import stream from 'stream';
 import log from 'npmlog';
-import { ApiCtx, Dfs, OutgoingMessage, RequestForm } from '../types';
+import { ApiCtx, Dfs, MessageID, OutgoingMessage } from '../types';
+import { getAttachmentID, UploadGeneralAttachmentResponse } from '../types/upload-attachment-response';
 import * as utils from '../utils';
+import { ThreadID } from '../types/threads';
+
+export enum OutgoingMessageSendType {
+	PlainText = 1,
+	Sticker = 2,
+	Attachment = 3,
+	// something = 4,
+	ForwardMessage = 5
+}
 
 export class OutgoingMessageHandler {
-	private handleUrl(
-		msg: OutgoingMessage,
-		form: RequestForm,
-		callback: (err?: { error: string }) => void,
-		cb: () => void
-	): void {
-		if (msg.url) {
-			form['shareable_attachment[share_type]'] = '100';
-			this.getUrl(msg.url, function (err, params) {
-				if (err) {
-					return callback(err);
-				}
-
-				form['shareable_attachment[share_params]'] = params;
-				cb();
-			});
-		} else {
-			cb();
-		}
-	}
-
-	private handleSticker(
-		msg: OutgoingMessage,
-		form: RequestForm,
-		callback: (err?: { error: string }) => void,
-		cb: () => void
-	): void {
+	private handleSticker(msg: OutgoingMessage, threadID: ThreadID): void {
 		if (msg.sticker) {
-			form['sticker_id'] = msg.sticker;
+			this.websocketContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID, // here
+					otid: utils.generateOfflineThreadingID(), // here
+					source: 0,
+					send_type: OutgoingMessageSendType.Sticker,
+					sticker_id: msg.sticker // <-- here
+				}),
+				queue_name: threadID.toString(), // here
+				task_id: this.task_id,
+				failure_count: null
+			});
 		}
-		cb();
 	}
 
-	private handleEmoji(
-		msg: OutgoingMessage,
-		form: RequestForm,
-		callback: (err?: { error: string }) => void,
-		cb: () => void
-	): void {
-		if (msg.emojiSize != null && msg.emoji == null) {
-			return callback({ error: 'emoji property is empty' });
-		}
-		if (msg.emoji) {
-			if (msg.emojiSize == null) {
-				msg.emojiSize = 'medium';
-			}
-			if (msg.emojiSize != 'small' && msg.emojiSize != 'medium' && msg.emojiSize != 'large') {
-				return callback({ error: 'emojiSize property is invalid' });
-			}
-			if (form['body'] != null && form['body'] != '') {
-				return callback({ error: 'body is not empty' });
-			}
-			form['body'] = msg.emoji;
-			form['tags[0]'] = 'hot_emoji_size:' + msg.emojiSize;
-		}
-		cb();
-	}
-
-	private handleAttachment(
-		msg: OutgoingMessage,
-		form: RequestForm,
-		callback: (err?: { error: string }) => void,
-		cb: () => void
-	): void {
+	private handleAttachment(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: unknown) => void): void {
 		if (msg.attachment) {
-			form['image_ids'] = [];
-			form['gif_ids'] = [];
-			form['file_ids'] = [];
-			form['video_ids'] = [];
-			form['audio_ids'] = [];
+			if (!(msg.attachment instanceof Array)) msg.attachment = [msg.attachment];
 
-			if (utils.getType(msg.attachment) !== 'Array') {
-				msg.attachment = [msg.attachment as stream.Readable];
-			}
+			this.uploadAttachment(msg.attachment, (err, files) => {
+				if (err) return callback(err);
+				if (!files) return callback();
 
-			this.uploadAttachment(msg.attachment as stream.Readable[], function (err, files) {
-				if (err) {
-					return callback(err);
-				}
-
-				if (files)
-					files.forEach(file => {
-						const key = Object.keys(file);
-						const type = key[0]; // image_id, file_id, etc
-						form['' + type + 's'].push(file[type]); // push the id
+				const attachmentIDs = files.map(file => getAttachmentID(file));
+				attachmentIDs.forEach(attID => {
+					// for each attachment id, create a new task and place it in the websocketContent
+					this.websocketContent.payload.tasks.push({
+						label: '46',
+						payload: JSON.stringify({
+							thread_id: threadID,
+							otid: utils.generateOfflineThreadingID(),
+							source: 0,
+							send_type: OutgoingMessageSendType.Attachment,
+							text: msg.body ? msg.body : null,
+							attachment_fbids: [attID] // here is the actual attachment ID
+						}),
+						queue_name: threadID.toString(),
+						task_id: this.task_id,
+						failure_count: null
 					});
-				cb();
+				});
+				callback();
 			});
-		} else {
-			cb();
+		} else callback();
+	}
+
+	private handlePlainText(msg: OutgoingMessage, threadID: ThreadID): void {
+		// handle this only when there are no other properties, because they are handled in other methods
+		if (msg.body && !msg.attachment && !msg.mentions) {
+			this.websocketContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID,
+					otid: utils.generateOfflineThreadingID(),
+					source: 0,
+					send_type: OutgoingMessageSendType.PlainText,
+					text: msg.body ? msg.body : null
+				}),
+				queue_name: threadID.toString(),
+				task_id: this.task_id,
+				failure_count: null
+			});
 		}
 	}
 
-	private handleMention(
-		msg: OutgoingMessage,
-		form: RequestForm,
-		callback: (err?: { error: string }) => void,
-		cb: () => void
-	): void {
+	private handleMentions(msg: OutgoingMessage, threadID: ThreadID) {
 		if (msg.mentions && msg.body) {
-			for (let i = 0; i < msg.mentions.length; i++) {
-				const mention = msg.mentions[i];
-
-				const tag = mention.tag;
-				if (typeof tag !== 'string') {
-					return callback({ error: 'Mention tags must be strings.' });
-				}
-
-				const offset = msg.body.indexOf(tag, mention.fromIndex || 0);
-
-				if (offset < 0) {
-					log.warn('handleMention', 'Mention for "' + tag + '" not found in message string.');
-				}
-
-				if (mention.id == null) {
-					log.warn('handleMention', 'Mention id should be non-null.');
-				}
-
-				const id = mention.id || 0;
-				form['profile_xmd[' + i + '][offset]'] = offset;
-				form['profile_xmd[' + i + '][length]'] = tag.length;
-				form['profile_xmd[' + i + '][id]'] = id;
-				form['profile_xmd[' + i + '][type]'] = 'p';
-			}
-		}
-		cb();
-	}
-
-	constructor(private ctx: ApiCtx, private _defaultFuncs: Dfs) {}
-
-	handleAll(
-		msg: OutgoingMessage,
-		form: RequestForm,
-		callback: (err?: { error: string }) => void,
-		cb: () => void
-	): void {
-		this.handleSticker(msg, form, callback, () =>
-			this.handleAttachment(msg, form, callback, () =>
-				this.handleUrl(msg, form, callback, () =>
-					this.handleEmoji(msg, form, callback, () => this.handleMention(msg, form, callback, cb))
-				)
-			)
-		);
-	}
-
-	private getUrl(url: string, callback: (err?: { error: string }, params?: any) => void): void {
-		const form = {
-			image_height: 960,
-			image_width: 960,
-			uri: url
-		};
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/message_share_attachment/fromURI/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error) {
-					return callback(resData);
-				}
-
-				if (!resData.payload) {
-					return callback({ error: 'Invalid url' });
-				}
-
-				callback(undefined, resData.payload.share_data.share_params);
-			})
-			.catch((err: any) => {
-				log.error('getUrl', err);
-				return callback(err);
+			this.websocketContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID,
+					otid: utils.generateOfflineThreadingID(),
+					source: 0,
+					send_type: OutgoingMessageSendType.PlainText,
+					text: msg.body,
+					// mention information:
+					mention_data: {
+						mention_ids: msg.mentions.map(m => m.id).join(),
+						mention_offsets: this.mentionsGetOffsetRecursive(
+							msg.body,
+							msg.mentions.map(m => m.name)
+						).join(),
+						mention_lengths: msg.mentions.map(m => m.name.length).join(),
+						mention_types: msg.mentions.map(() => 'p').join()
+					}
+				}),
+				queue_name: threadID.toString(),
+				task_id: this.task_id,
+				failure_count: null
 			});
+		}
+	}
+	/** This recursive method gets all the offsets (indexes) of the searched values one-by-one.
+	 * This method is recursive, so it can find the same substring at different positions. */
+	private mentionsGetOffsetRecursive(text: string, searchForValues: string[]): number[] {
+		const index = text.indexOf(searchForValues[0]);
+		if (index === -1) throw new Error('There was a problem finding the offset - no such text found');
+
+		if (searchForValues.length == 1) {
+			// this is the final mention search
+			return [index];
+		} else {
+			// we have still another mention string - so we provide substring & subarray
+			const newStartIndex = index + searchForValues[0].length;
+			return [index].concat(
+				this.mentionsGetOffsetRecursive(text.slice(newStartIndex), searchForValues.slice(1)).map(i => i + newStartIndex)
+			);
+		}
 	}
 
-	uploadAttachment(attachments: stream.Readable[], callback: (err?: { error: string }, files?: any[]) => void): void {
-		const uploads = [];
+	private websocketContent: any = {
+		request_id: 166,
+		type: 3,
+		payload: {
+			// this payload will be json-stringified
+			version_id: '3816854585040595',
+			tasks: [], // all tasks will be added here
+			epoch_id: 6763184801413415579,
+			data_trace_id: null
+		},
+		app_id: '772021112871879'
+	};
+	constructor(private ctx: ApiCtx, private _defaultFuncs: Dfs, private task_id: number) {}
 
-		// create an array of promises
-		for (let i = 0; i < attachments.length; i++) {
-			if (!utils.isReadableStream(attachments[i])) {
-				throw {
-					error: 'Attachment should be a readable stream and not ' + utils.getType(attachments[i]) + '.'
-				};
-			}
+	handleAllAttachments(
+		msg: OutgoingMessage,
+		threadID: ThreadID,
+		callback: (err: unknown, websocketContent?: unknown) => void
+	): void {
+		this.handlePlainText(msg, threadID);
+		this.handleSticker(msg, threadID);
+		this.handleMentions(msg, threadID);
+		this.handleAttachment(msg, threadID, err => {
+			if (err) return callback(err);
+
+			// finally, stringify the last payload - as (slightly retarded) Facebook requires
+			this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
+			callback(null, this.websocketContent);
+		});
+	}
+
+	private uploadAttachment(
+		attachments: stream.Readable[],
+		callback: (err: unknown, files?: UploadGeneralAttachmentResponse[]) => void
+	): void {
+		const uploadingPromises = attachments.map(att => {
+			if (!utils.isReadableStream(att))
+				throw new TypeError(`Attachment should be a readable stream and not ${utils.getType(att)}.`);
 
 			const form = {
-				upload_1024: attachments[i],
+				upload_1024: att,
 				voice_clip: 'true'
 			};
 
-			uploads.push(
-				this._defaultFuncs
-					.postFormData('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, form, {})
-					.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-					.then((resData: any) => {
-						if (resData.error) {
-							throw resData;
-						}
+			return this._defaultFuncs
+				.postFormData('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, form, {})
+				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+				.then((resData: any) => {
+					if (resData.error) throw resData;
 
-						// We have to return the data unformatted unless we want to change it
-						// back in sendMessage.
-						return resData.payload.metadata[0];
-					})
-			);
-		}
+					// We have to return the data unformatted unless we want to change it back in sendMessage.
+					return resData.payload.metadata[0] as UploadGeneralAttachmentResponse;
+				});
+		});
 
-		// resolve all promises
-		bluebird
-			.all(uploads)
-			.then(function (resData) {
+		Promise.all(uploadingPromises)
+			.then((resData: UploadGeneralAttachmentResponse[]) => {
 				callback(undefined, resData);
 			})
 			.catch(err => {
 				log.error('uploadAttachment', err);
 				return callback(err);
 			});
+	}
+
+	forwardMessage(
+		messageID: MessageID,
+		threadID: ThreadID,
+		callback: (err: unknown, websocketContent?: unknown) => void
+	): void {
+		if (!messageID || !threadID) callback(new Error('Invalid input to forwardMessage method'));
+
+		this.websocketContent.payload.tasks.push({
+			label: '46',
+			payload: JSON.stringify({
+				thread_id: threadID,
+				otid: utils.generateOfflineThreadingID(),
+				source: 65536,
+				send_type: OutgoingMessageSendType.ForwardMessage,
+				forwarded_msg_id: messageID
+			}),
+			queue_name: threadID.toString(),
+			task_id: this.task_id,
+			failure_count: null
+		});
+
+		// finally, stringify the payload property - as (slightly retarded) Facebook requires
+		this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
+		callback(null, this.websocketContent);
 	}
 }

@@ -1,5 +1,3 @@
-// /* eslint-disable */
-
 // const expect = require('chai').expect;
 import { expect } from 'chai';
 import login from '../dist/index';
@@ -7,8 +5,11 @@ import Api from '../dist/lib/api';
 import fs from 'fs';
 import path from 'path';
 import { AppState, Message } from '../dist/lib/types';
+import { EventEmitter } from 'events';
 
 describe('Fundamental API functioning', function () {
+	this.timeout(30000); // 30s
+
 	let appState1: AppState, appState2: AppState;
 	let startTime: Date;
 	before(() => {
@@ -40,7 +41,7 @@ describe('Fundamental API functioning', function () {
 			else oneDone = true;
 		});
 	});
-	it('should have the test accounts logged in', () => {
+	it('should have both the test accounts logged in', () => {
 		expect(api1).to.exist;
 		expect(api1.getAppState()).to.be.not.empty;
 		expect(api2).to.exist;
@@ -63,59 +64,144 @@ describe('Fundamental API functioning', function () {
 		});
 	});
 
-	it('sends a message and recieves it in another account', done => {
-		// TODO: add some time to the timeout of this test (if possible)
-		// because this test lasts sometimes longer than default 15s
+	let emitter: EventEmitter; // this will emit events from the second api
+	it('invokes the listening method of both test accounts', done => {
+		emitter = new EventEmitter();
+
+		const isActive = [false, false];
+		api1.listen((err, event) => {
+			if (err) throw err;
+			if (isActive[1] && !isActive[0]) done();
+			isActive[0] = true;
+		});
+		api2.listen((err, event) => {
+			if (err) throw err;
+			if (isActive[0] && !isActive[1]) done();
+			isActive[1] = true;
+
+			emitter.emit('event', event);
+		});
+	});
+  
+	it('should have both the test accounts activated', () => {
+		expect(api1.isActive, 'the first api was not activated').to.be.true;
+		expect(api2.isActive, 'the second api was not activated').to.be.true;
+	});
+
+	it('sends a text message and recieves it in another account', done => {
+		// the first account will send a message, the second one should recieve it
 		const messageBody = 'This message was send automatically during the test';
 		let messageWasSent = false;
-		let secondApiInitialised = false;
+		let messageWasRecieved = false;
 
-		api1.listen((err, event1) => {
-			// this `listen` function invocation is for websocket init only (for message sending)
-			expect(err).to.not.exist;
-			if (err) throw err;
-
-			if (!secondApiInitialised) {
-				secondApiInitialised = true;
-				// we want to init this second api only once
-
-				api2.listen((err2, event2) => {
-					expect(err2).to.not.exist;
-					if (err2) throw err2;
-					if (!event2) throw new Error();
-
-					if (!messageWasSent) {
-						messageWasSent = true;
-						// now both accounts are listening, so we can send a text message
-						// from one account to another and check if it has been recieved
-						api1.sendMessage(
-							{ body: `[${messageBody}. Timestamp: ${new Date().getTime()}` },
-							api2.ctx.userID,
-							err3 => expect(err3).to.not.exist
-						);
-					}
-
-					if (messageWasSent && event2.type === 'message') {
-						// the first account sent the message, the second one should recieve it
-						expect((event2 as Message).body, 'incoming message did not contain "body" property').to.exist;
-						expect((event2 as Message).body, 'incoming text message did not contain expected content').to.include(
-							messageBody
-						);
-						api1.stopListening();
-						api2.stopListening();
-						done();
-					}
-				});
+		// setup the event listener
+		const listener = (event: any) => {
+			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
+				expect((event as Message).body, 'incoming text message did not contain "body" property').to.exist;
+				expect((event as Message).body, 'incoming text message did not contain expected content').to.include(
+					messageBody
+				);
+				done();
+				messageWasRecieved = true;
+				emitter.removeListener('event', listener);
 			}
-		});
+		};
+		emitter.addListener('event', listener);
 
-		// finally, check if the `listen` methods are terminated after some timeout
-		setTimeout(() => {
-			if (!(api1.ctx.mqttClient || api1.ctx.mqttClient)) return; // both apis are suspended
-			api1.stopListening();
-			api2.stopListening();
-			console.log('The apis `listen` methods have been forcefully terminated after the timeout.');
-		}, 60000); // 1 minute
+		// send the actual message
+		messageWasSent = true;
+		api1.sendMessage(
+			{ body: `[${messageBody}. Timestamp: ${new Date().getTime()}` },
+			api2.ctx.userID,
+			err => expect(err).to.not.exist
+		);
+	});
+  
+	it('sends an image attachment and recieves it in another account', done => {
+		// the first account will send a message, the second one should recieve it
+		let messageWasSent = false;
+		let messageWasRecieved = false;
+
+		// setup the event listener
+		const listener = (event: any) => {
+			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
+				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
+				expect((event as Message).attachments).to.be.not.empty;
+				// expect((event as Message).attachments, 'incoming message did not contain expected attachment').to.include(
+				// 	messageBody
+				// );
+				done();
+				messageWasRecieved = true;
+				emitter.removeListener('event', listener);
+			}
+		};
+		emitter.addListener('event', listener);
+
+		// send the actual message
+		messageWasSent = true;
+		api1.sendMessage(
+			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/image.jpg')) },
+			api2.ctx.userID,
+			err => expect(err).to.not.exist
+		);
+	});
+  
+	it('sends an audio attachment and recieves it in another account', done => {
+		// the first account will send a message, the second one should recieve it
+		let messageWasSent = false;
+		let messageWasRecieved = false;
+
+		// setup the event listener
+		const listener = (event: any) => {
+			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
+				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
+				expect((event as Message).attachments).to.be.not.empty;
+				// expect((event as Message).attachments, 'incoming message did not contain expected attachment').to.include(
+				// 	messageBody
+				// );
+				done();
+				messageWasRecieved = true;
+				emitter.removeListener('event', listener);
+			}
+		};
+		emitter.addListener('event', listener);
+
+		// send the actual message
+		messageWasSent = true;
+		api1.sendMessage(
+			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/audio.mp3')) },
+			api2.ctx.userID,
+			err => expect(err).to.not.exist
+		);
+	});
+  
+	it('sends a video attachment and recieves it in another account', done => {
+		// the first account will send a message, the second one should recieve it
+		let messageWasSent = false;
+		let messageWasRecieved = false;
+
+		// setup the event listener
+		const listener = (event: any) => {
+			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
+				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
+				expect((event as Message).attachments).to.be.not.empty;
+				// expect((event as Message).attachments, 'incoming message did not contain expected attachment').to.include(
+				// 	messageBody
+				// );
+				done();
+				messageWasRecieved = true;
+				emitter.removeListener('event', listener);
+			}
+		};
+		emitter.addListener('event', listener);
+
+		// send the actual message
+		messageWasSent = true;
+		api1.sendMessage(
+			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/video.mp4')) },
+			api2.ctx.userID,
+			err => expect(err).to.not.exist
+		);
 	});
 
 	it('should get thread history', done => {
@@ -131,6 +217,9 @@ describe('Fundamental API functioning', function () {
 	});
 
 	after(() => {
+		api1?.stopListening();
+		api2?.stopListening();
+
 		const endTime: Date = new Date();
 		console.log(
 			`The tests have completed. Timestamp: ${endTime.getTime()}. Duration: ${
