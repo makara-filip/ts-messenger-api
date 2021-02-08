@@ -1,4 +1,3 @@
-// const expect = require('chai').expect;
 import { expect } from 'chai';
 import login from '../dist/index';
 import Api from '../dist/lib/api';
@@ -6,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { AppState, Message } from '../dist/lib/types';
 import { EventEmitter } from 'events';
+import { sentence } from 'txtgen';
 
 describe('Fundamental API functioning', function () {
 	this.timeout(30000); // 30s
@@ -26,19 +26,18 @@ describe('Fundamental API functioning', function () {
 	});
 
 	let api1: Api, api2: Api;
-	it('performs both logins', done => {
-		let oneDone = false;
+	it('performs login 1', done => {
 		login({ appState: appState1, email: '', password: '' }, {}, (err, iapi) => {
 			if (err) throw err;
 			api1 = iapi as Api;
-			if (oneDone) done();
-			else oneDone = true;
+			done();
 		});
+	});
+	it('performs login 2', done => {
 		login({ appState: appState2, email: '', password: '' }, {}, (err, iapi) => {
 			if (err) throw err;
 			api2 = iapi as Api;
-			if (oneDone) done();
-			else oneDone = true;
+			done();
 		});
 	});
 	it('should have both the test accounts logged in', () => {
@@ -65,20 +64,25 @@ describe('Fundamental API functioning', function () {
 	});
 
 	let emitter: EventEmitter; // this will emit events from the second api
-	it('invokes the listening method of both test accounts', done => {
-		emitter = new EventEmitter();
-
-		const isActive = [false, false];
+	it('invokes the listening method of test account 1', done => {
+		let isActive = false;
 		api1.listen((err, event) => {
 			if (err) throw err;
-			if (isActive[1] && !isActive[0]) done();
-			isActive[0] = true;
+			if (!isActive) {
+				isActive = true;
+				done();
+			}
 		});
+	});
+	it('invokes the listening method of test account 2', done => {
+		emitter = new EventEmitter();
+		let isActive = false;
 		api2.listen((err, event) => {
 			if (err) throw err;
-			if (isActive[0] && !isActive[1]) done();
-			isActive[1] = true;
-
+			if (!isActive) {
+				isActive = true;
+				done();
+			}
 			emitter.emit('event', event);
 		});
 	});
@@ -90,7 +94,7 @@ describe('Fundamental API functioning', function () {
 
 	it('sends a text message and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
-		const messageBody = 'This message was send automatically during the test';
+		const messageBody = sentence().slice(0, -1);
 		let messageWasSent = false;
 		let messageWasRecieved = false;
 
@@ -111,13 +115,13 @@ describe('Fundamental API functioning', function () {
 		// send the actual message
 		messageWasSent = true;
 		api1.sendMessage(
-			{ body: `[${messageBody}. Timestamp: ${new Date().getTime()}` },
+			{ body: messageBody },
 			api2.ctx.userID,
 			err => expect(err).to.not.exist
 		);
 	});
 
-	it('sends an image attachment and recieves it in another account', done => {
+	xit('sends an image attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
 		let messageWasRecieved = false;
@@ -146,7 +150,7 @@ describe('Fundamental API functioning', function () {
 		);
 	});
 
-	it('sends an audio attachment and recieves it in another account', done => {
+	xit('sends an audio attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
 		let messageWasRecieved = false;
@@ -175,7 +179,7 @@ describe('Fundamental API functioning', function () {
 		);
 	});
 
-	it('sends a video attachment and recieves it in another account', done => {
+	xit('sends a video attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
 		let messageWasRecieved = false;
@@ -209,7 +213,7 @@ describe('Fundamental API functioning', function () {
 			expect(err).to.be.null;
 			expect(history).to.exist;
 			if (history) {
-				expect(history.length).to.be.equal(20);
+				expect(history).to.not.be.empty;
 				expect(history[0]).to.not.be.empty;
 			}
 			done();
@@ -219,6 +223,7 @@ describe('Fundamental API functioning', function () {
 	after(() => {
 		api1?.stopListening();
 		api2?.stopListening();
+		emitter?.removeAllListeners();
 
 		const endTime: Date = new Date();
 		console.log(
@@ -226,5 +231,6 @@ describe('Fundamental API functioning', function () {
 				endTime.getTime() - startTime.getTime()
 			} milliseconds`
 		);
+		process.exit(0); // force exit (it used to test for a whole day)
 	});
 });

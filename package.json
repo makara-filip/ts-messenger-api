@@ -34,6 +34,7 @@
 		"request": "^2.88.2",
 		"tough-cookie": "^4.0.0",
 		"ts-node": "^9.1.1",
+		"txtgen": "^2.2.8",
 		"websocket-stream": "^5.5.2"
 	},
 	"devDependencies": {
