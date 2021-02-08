@@ -845,6 +845,20 @@ export default class Api {
 		});
 	}
 
+	unsendMessage(messageID: MessageID, callback: (err?: unknown) => void = () => {}): void {
+		this.checkForActiveState();
+
+		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
+		handler.unsendMessage(messageID, (err, websocketContent) => {
+			if (err) return callback(err);
+
+			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
+				// console.log(err, packet);
+				callback(err);
+			});
+		});
+	}
+
 	forwardMessage(messageID: MessageID, threadID: ThreadID, callback: (err: unknown) => void): void {
 		this.checkForActiveState();
 
@@ -1250,7 +1264,7 @@ export default class Api {
 	}
 
 	getThreadHistory(
-		threadID: string,
+		threadID: ThreadID,
 		amount: number,
 		timestamp: number | undefined,
 		callback: (err: any, history?: Message[]) => void

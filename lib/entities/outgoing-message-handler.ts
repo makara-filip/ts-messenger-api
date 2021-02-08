@@ -217,4 +217,18 @@ export class OutgoingMessageHandler {
 		this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
 		callback(null, this.websocketContent);
 	}
+
+	unsendMessage(messageID: MessageID, callback: (err: unknown, websocketContent?: unknown) => void): void {
+		if (!messageID) throw new Error('Invalid input to unsendMessage method');
+		this.websocketContent.payload.tasks.push({
+			label: '33',
+			payload: JSON.stringify({ message_id: messageID }),
+			queue_name: 'unsend_message',
+			task_id: 32,
+			failure_count: null
+		});
+		// finally, stringify the payload property - as (slightly retarded) Facebook requires
+		this.websocketContent.payload = JSON.stringify(this.websocketContent.payload);
+		callback(null, this.websocketContent);
+	}
 }
