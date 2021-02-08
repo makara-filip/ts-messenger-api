@@ -364,10 +364,11 @@ export default class Api {
 	}
 
 	private websocketTaskNumber = 1;
+	private websocketRequestNumber = 1;
 	/** Creates and returns an object that can be JSON-stringified and sent using the websocket connection. */
 	private createWebsocketContent(): any {
 		return {
-			request_id: 166, // TODO figure this out
+			request_id: ++this.websocketRequestNumber,
 			type: 3,
 			payload: {
 				version_id: '3816854585040595',
