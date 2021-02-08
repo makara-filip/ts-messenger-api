@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable no-case-declarations */
+import stream from 'stream';
 import log from 'npmlog';
 import {
 	ApiCtx,
@@ -11,6 +12,7 @@ import {
 	MessageReply,
 	MqttQueue,
 	OutgoingMessage,
+	OutgoingMessageSendType,
 	Presence,
 	RequestForm,
 	Typ
@@ -20,7 +22,7 @@ import * as utils from './utils';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
 import { ThreadColor, ThreadID } from './types/threads';
-import { OutgoingMessageHandler } from './entities/outgoing-message-handler';
+import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 
 export default class Api {
 	ctx: ApiCtx;
@@ -55,7 +57,6 @@ export default class Api {
 	};
 	private chatOn = true;
 	private foreground = false;
-	private task_id = 1; // in websocket
 
 	constructor(defaultFuncs: Dfs, ctx: ApiCtx) {
 		this.ctx = ctx;
@@ -359,6 +360,36 @@ export default class Api {
 	}
 	private checkForActiveState() {
 		if (!this.isActive) throw new Error('This function requires the function Api.listen() to be called first');
+	}
+
+	private websocketTaskNumber = 1;
+	/** Creates and returns an object that can be JSON-stringified and sent using the websocket connection. */
+	private createWebsocketContent(): any {
+		return {
+			request_id: 166, // TODO figure this out
+			type: 3,
+			payload: {
+				version_id: '3816854585040595',
+				tasks: [], // all tasks will be added here
+				epoch_id: 6763184801413415579,
+				data_trace_id: null
+			},
+			app_id: '772021112871879'
+		};
+	}
+	private sendWebsocketContent(websocketContent: any, callback: (err?: unknown) => void): void {
+		if (!this.ctx.mqttClient)
+			return callback(new Error('This function requires the websocket client to be initialised.'));
+
+		// json-stringify the payload property (if it hasn't been previously)
+		// because (slightly retarded) Facebook requires it
+		if (typeof websocketContent.payload === 'object')
+			websocketContent.payload = JSON.stringify(websocketContent.payload);
+
+		this.ctx.mqttClient.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
+			// console.log(err, packet);
+			callback(err);
+		});
 	}
 
 	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
@@ -831,47 +862,177 @@ export default class Api {
 	 * @param threadID ID of a thread to send the message to
 	 * @param callback Will be called when the message was successfully sent or rejected
 	 */
-	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback: (err: unknown) => void = () => {}): void {
+	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: unknown) => void = () => {}): void {
 		this.checkForActiveState();
 
-		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
-		handler.handleAllAttachments(msg, threadID, (err, websocketContent) => {
-			if (err) return callback(err);
+		const wsContent = this.createWebsocketContent();
+		let isWaiting = false; // waiting for attachments to upload, for example
+		this.websocketTaskNumber++;
 
-			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
-				// console.log(err, packet);
-				callback(err);
+		if (msg.sticker) {
+			wsContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID,
+					otid: utils.generateOfflineThreadingID(),
+					source: 0,
+					send_type: OutgoingMessageSendType.Sticker,
+					sticker_id: msg.sticker
+				}),
+				queue_name: threadID.toString(),
+				task_id: this.websocketTaskNumber,
+				failure_count: null
 			});
-		});
+		}
+		if (msg.attachment) {
+			if (!(msg.attachment instanceof Array)) msg.attachment = [msg.attachment];
+			isWaiting = true;
+
+			this.uploadAttachment(msg.attachment, (err, files) => {
+				if (err) return callback(err);
+				if (!files) {
+					isWaiting = false;
+					return;
+				}
+
+				files.forEach(file => {
+					// for each attachment id, create a new task (as Facebook does)
+					wsContent.payload.tasks.push({
+						label: '46',
+						payload: JSON.stringify({
+							thread_id: threadID,
+							otid: utils.generateOfflineThreadingID(),
+							source: 0,
+							send_type: OutgoingMessageSendType.Attachment,
+							text: msg.body ? msg.body : null,
+							attachment_fbids: [getAttachmentID(file)] // here is the actual attachment ID
+						}),
+						queue_name: threadID.toString(),
+						task_id: this.websocketTaskNumber++, // increment the task number after each task
+						failure_count: null
+					});
+				});
+
+				isWaiting = false;
+				this.sendWebsocketContent(wsContent, callback); // TODO: re-do this when big ASYNC refactor
+			});
+		}
+		// handle this only when there are no other properties, because they are handled in other statements
+		if (msg.body && !msg.attachment && !msg.mentions) {
+			wsContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID,
+					otid: utils.generateOfflineThreadingID(),
+					source: 0,
+					send_type: OutgoingMessageSendType.PlainText,
+					text: msg.body ? msg.body : null
+				}),
+				queue_name: threadID.toString(),
+				task_id: this.websocketTaskNumber,
+				failure_count: null
+			});
+		}
+		if (msg.mentions && msg.body) {
+			wsContent.payload.tasks.push({
+				label: '46',
+				payload: JSON.stringify({
+					thread_id: threadID,
+					otid: utils.generateOfflineThreadingID(),
+					source: 0,
+					send_type: OutgoingMessageSendType.PlainText,
+					text: msg.body,
+					mention_data: {
+						mention_ids: msg.mentions.map(m => m.id).join(),
+						mention_offsets: utils
+							.mentionsGetOffsetRecursive(
+								msg.body,
+								msg.mentions.map(m => m.name)
+							)
+							.join(),
+						mention_lengths: msg.mentions.map(m => m.name.length).join(),
+						mention_types: msg.mentions.map(() => 'p').join()
+					}
+				}),
+				queue_name: threadID.toString(),
+				task_id: this.websocketTaskNumber,
+				failure_count: null
+			});
+		}
+
+		if (!isWaiting)
+			// waiting for the attachments to upload
+			this.sendWebsocketContent(wsContent, callback);
 	}
 
 	unsendMessage(messageID: MessageID, callback: (err?: unknown) => void = () => {}): void {
 		this.checkForActiveState();
+		if (!messageID) throw new Error('Invalid input to unsendMessage method');
 
-		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
-		handler.unsendMessage(messageID, (err, websocketContent) => {
-			if (err) return callback(err);
-
-			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
-				// console.log(err, packet);
-				callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '33',
+			payload: JSON.stringify({ message_id: messageID }),
+			queue_name: 'unsend_message',
+			task_id: this.websocketTaskNumber,
+			failure_count: null
 		});
+		this.sendWebsocketContent(wsContent, callback);
 	}
 
 	forwardMessage(messageID: MessageID, threadID: ThreadID, callback: (err: unknown) => void): void {
 		this.checkForActiveState();
+		if (!(messageID && threadID)) callback(new Error('Invalid input to forwardMessage method'));
 
-		// forwarding messages uses the websocket connection
-		const handler = new OutgoingMessageHandler(this.ctx, this._defaultFuncs, this.task_id++);
-		handler.forwardMessage(messageID, threadID, (err, websocketContent) => {
-			if (err) return callback(err);
-
-			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
-				// console.log(err, packet);
-				callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '46',
+			payload: JSON.stringify({
+				thread_id: threadID,
+				otid: utils.generateOfflineThreadingID(),
+				source: 65536,
+				send_type: OutgoingMessageSendType.ForwardMessage,
+				forwarded_msg_id: messageID
+			}),
+			queue_name: threadID.toString(),
+			task_id: this.websocketTaskNumber,
+			failure_count: null
 		});
+		this.sendWebsocketContent(wsContent, callback);
+	}
+
+	private uploadAttachment(
+		attachments: stream.Readable[],
+		callback: (err: unknown, files?: UploadGeneralAttachmentResponse[]) => void
+	): void {
+		const uploadingPromises = attachments.map(att => {
+			if (!utils.isReadableStream(att))
+				throw callback(new TypeError(`Attachment should be a readable stream and not ${utils.getType(att)}.`));
+
+			const form = {
+				upload_1024: att,
+				voice_clip: 'true'
+			};
+
+			return this._defaultFuncs
+				.postFormData('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, form, {})
+				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+				.then((resData: any) => {
+					if (resData.error) throw resData;
+
+					// We have to return the data unformatted unless we want to change it back in sendMessage.
+					return resData.payload.metadata[0] as UploadGeneralAttachmentResponse;
+				});
+		});
+
+		Promise.all(uploadingPromises)
+			.then((resData: UploadGeneralAttachmentResponse[]) => {
+				callback(null, resData);
+			})
+			.catch(err => {
+				log.error('uploadAttachment', err);
+				return callback(err);
+			});
 	}
 
 	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoGeneralDictByUserId) => void): void {

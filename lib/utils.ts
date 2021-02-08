@@ -1177,3 +1177,21 @@ export function getAppState(jar: Jar): Cookie[] {
 		.concat(jar.getCookies('https://facebook.com'))
 		.concat(jar.getCookies('https://www.messenger.com'));
 }
+
+/** This recursive function gets all the offsets (indexes) of the searched values one-by-one.
+ * This method is recursive, so it can find the same substring at different positions. */
+export function mentionsGetOffsetRecursive(text: string, searchForValues: string[]): number[] {
+	const index = text.indexOf(searchForValues[0]);
+	if (index === -1) throw new Error('There was a problem finding the offset - no such text found');
+
+	if (searchForValues.length == 1) {
+		// this is the final mention search
+		return [index];
+	} else {
+		// we have still another mention string - so we provide substring & subarray
+		const newStartIndex = index + searchForValues[0].length;
+		return [index].concat(
+			mentionsGetOffsetRecursive(text.slice(newStartIndex), searchForValues.slice(1)).map(i => i + newStartIndex)
+		);
+	}
+}

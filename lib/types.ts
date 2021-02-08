@@ -101,6 +101,13 @@ export interface OutgoingMessageUserMention {
 	/** ID of the user being mentioned */
 	id: UserID;
 }
+export enum OutgoingMessageSendType {
+	PlainText = 1,
+	Sticker = 2,
+	Attachment = 3,
+	// something = 4,
+	ForwardMessage = 5
+}
 
 interface MessageBase {
 	type:
