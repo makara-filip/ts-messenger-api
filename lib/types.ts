@@ -398,3 +398,13 @@ export type ListenCallback = (
 		| MessageReply
 		| ChangeThreadImage
 ) => void;
+
+/** Represents outgoing websocket content which Facebook accepts.
+ * MUST be json-stringified just before being sent. */
+export interface WebsocketContent {
+	request_id: number;
+	type: number;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	payload: any; // must be of type "any" - can be either string or object
+	app_id: string | number;
+}

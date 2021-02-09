@@ -15,7 +15,8 @@ import {
 	OutgoingMessageSendType,
 	Presence,
 	RequestForm,
-	Typ
+	Typ,
+	WebsocketContent
 } from './types';
 import { UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
@@ -365,11 +366,13 @@ export default class Api {
 
 	private websocketTaskNumber = 1;
 	private websocketRequestNumber = 1;
-	/** Creates and returns an object that can be JSON-stringified and sent using the websocket connection. */
-	private createWebsocketContent(): any {
+	/** Creates and returns an object that can be JSON-stringified and sent using the websocket connection.
+	 * @param fbContentType (number) specific for different websocket types as Facebook uses
+	 * (4 for typing & state indication, 3 for message sending, etc.) - default 3 */
+	private createWebsocketContent(fbContentType = 3): WebsocketContent {
 		return {
 			request_id: ++this.websocketRequestNumber,
-			type: 3,
+			type: fbContentType,
 			payload: {
 				version_id: '3816854585040595',
 				tasks: [], // all tasks will be added here
@@ -379,7 +382,7 @@ export default class Api {
 			app_id: '772021112871879'
 		};
 	}
-	private sendWebsocketContent(websocketContent: any, callback: (err?: unknown) => void): void {
+	private sendWebsocketContent(websocketContent: WebsocketContent, callback: (err?: unknown) => void): void {
 		if (!this.ctx.mqttClient)
 			return callback(new Error('This function requires the websocket client to be initialised.'));
 
@@ -1035,6 +1038,42 @@ export default class Api {
 				log.error('uploadAttachment', err);
 				return callback(err);
 			});
+	}
+
+	/** Sends a typing indicator to the specified thread.
+	 * @param threadID the specified thread to send the indicator
+	 * @param isTyping the state of typing indicator
+	 * @param timeout the time in milliseconds after which to turn off the typing state
+	 * (if the state was set to true) - recommended 20000 (20 seconds) */ 
+	sendTypingIndicator(threadID: ThreadID, isTyping: boolean, timeout: number, callback: (err?: unknown) => void = () => {}): void {
+		this.checkForActiveState();
+		if (!threadID) return callback(new Error('Invalid input to sendTypingIndicator method.'));
+
+		// we need to know whether the thread is a group
+		// TODO: transform to getThreadInfo when it's available
+		this.getThreadHistory(threadID, 1, undefined, (err, history) => {
+			if (err) return callback(new Error('An error 1 occuder while checking whether the thread was a group or not.'));
+			if (!history)
+				return callback(new Error('An error 2 occuder while checking whether the thread was a group or not.'));
+			if (!history.length)
+				return callback(new Error('An error 3 occuder while checking whether the thread was a group or not.'));
+
+			const wsContent = this.createWebsocketContent(4);
+			// typing indication is slightly different from message sending
+			wsContent.payload = JSON.stringify({
+				label: '3',
+				payload: JSON.stringify({
+					thread_key: threadID,
+					is_group_thread: history[0].isGroup, // group boolean here
+					is_typing: isTyping
+				}),
+				version: '2667723500019469'
+			});
+
+			// automatically turn off after the timeout (otherwise it would be forever, I've tested that )
+			if (isTyping) setTimeout(() => this.sendTypingIndicator(threadID, false, -1, callback), timeout);
+			this.sendWebsocketContent(wsContent, callback);
+		});
 	}
 
 	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoGeneralDictByUserId) => void): void {
