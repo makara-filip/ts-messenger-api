@@ -3,7 +3,7 @@ import login from '../dist/index';
 import Api from '../dist/lib/api';
 import fs from 'fs';
 import path from 'path';
-import { AppState, Message } from '../dist/lib/types';
+import { AppState, Message, Typ } from '../dist/lib/types';
 import { EventEmitter } from 'events';
 import { sentence } from 'txtgen';
 
@@ -15,7 +15,7 @@ describe('Fundamental API functioning', function () {
 	before(() => {
 		startTime = new Date();
 		console.log(`The tests have just started. Timestamp: ${startTime.getTime()}`);
-		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'testAccount1.json')).toString());
+		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'justin.json')).toString());
 		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'testAccount3.json')).toString());
 	});
 	it('should have the AppStates loaded', () => {
@@ -206,6 +206,35 @@ describe('Fundamental API functioning', function () {
 			api2.ctx.userID,
 			err => expect(err).to.not.exist
 		);
+	});
+
+	it('sends a typing indicator and spot it in another account', done => {
+		// the first account will send the indicator, the second one should spot it
+		let indicatorWasSent = false;
+		let indicatorRecievedTyping = false;
+		let isDone = false;
+
+		const listener = (event: any) => {
+			if (!indicatorWasSent || event.type !== 'typ' || isDone) return;
+			const typing = event as Typ;
+			if (typing.from != api1.ctx.userID) return;
+
+			if (!indicatorRecievedTyping) {
+				// the first indication - should be "true"
+				expect(typing.isTyping).to.be.true;
+				indicatorRecievedTyping = true;
+			} else {
+				// the second indication (after the timeout) - should be "false"
+				expect(typing.isTyping).to.be.false;
+				done();
+				isDone = true;
+				emitter.removeListener('event', listener);
+			}
+		};
+		emitter.addListener('event', listener);
+
+		indicatorWasSent = true;
+		api1.sendTypingIndicator(api2.ctx.userID, true, 4000, err => expect(err).to.not.exist);
 	});
 
 	it('should get thread history', done => {
