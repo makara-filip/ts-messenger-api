@@ -11,14 +11,14 @@ import {
 	ReadReceipt,
 	RequestForm
 } from './types';
+// import r from 'request-promise-native';
 import r from 'request';
-import Bluebird, { promisify } from 'bluebird';
 import { Response } from 'request';
 import Jar from './jar';
 import stream from 'stream';
 import log from 'npmlog';
 import { Cookie } from 'tough-cookie';
-const request = promisify(r.defaults({ jar: true }), { multiArgs: true });
+const request = r.defaults({ jar: true });
 
 export function getHeaders(url: string, options: ApiOptions): MessHeaders {
 	return {
@@ -43,12 +43,7 @@ export function isReadableStream(obj: unknown): boolean {
 /**
  * @param qs This is ussually null
  */
-export function get(
-	url: string,
-	jar: Jar | null,
-	qs: Record<string, unknown> | null,
-	options: ApiOptions
-): Bluebird<r.Response> {
+export async function get(url: string, jar: Jar | null, qs: Record<string, unknown> | null, options: ApiOptions) {
 	// I'm still confused about this
 	if (getType(qs) === 'Object') {
 		for (const prop in qs) {
@@ -68,12 +63,21 @@ export function get(
 	};
 
 	// TODO: This was modified
-	return request(op).then(function (res: any) {
-		return res[0];
+	// const response = await request(op);
+	// // .then((res: any) => {
+	// // 	return res[0];
+	// // });
+	// return response;
+	const response = await new Promise((resolve, reject) => {
+		request(url, op, (err, res, body) => {
+			if (err) return reject(err);
+			resolve(res);
+		});
 	});
+	return response as Response;
 }
 
-export function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions): Bluebird<r.Response> {
+export async function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions) {
 	const op = {
 		headers: getHeaders(url, options),
 		timeout: 60000,
@@ -85,12 +89,25 @@ export function post(url: string, jar: Jar, form: RequestForm, options: ApiOptio
 	};
 
 	// TODO: This was modified
-	return request(op).then(function (res: any) {
-		return res[0];
-	});
+	// return await new Promise((resolve, reject) => {
+	// 	request(url, op, (err, response, body) => {
+	// 		if (err) return reject(err);
+	// 		resolve(response);
+	// 	});
+	// });
+	// const response = await request(url, op).then((res: any) => {
+	// 	return res[0];
+	// });
+	const response = await new Promise((resolve, reject) => {
+		request(url, op, (err, res, body) => {
+			if (err) return reject(err);
+			resolve(res);
+		});
+	}); 
+	return response as Response;
 }
 
-export function postFormData(
+export async function postFormData(
 	url: string,
 	jar: Jar,
 	form: RequestForm,
@@ -111,9 +128,23 @@ export function postFormData(
 	};
 
 	// TODO: This was modified
-	return request(op).then(function (res: any) {
-		return res[0];
-	});
+	// return await new Promise((resolve, reject) => {
+	// 	request(url, op, (err, response, body) => {
+	// 		if (err) return reject(err);
+	// 		resolve(response);
+	// 	});
+	// })
+	// const response = await request(op).then(function (res: any) {
+	// 	return res[0];
+	// });
+	// return response;
+	const response = await new Promise((resolve, reject) => {
+		request(url, op, (err, res, body) => {
+			if (err) return reject(err);
+			resolve(res);
+		});
+	}); 
+	return response as Response;
 }
 
 /** Appends zeroes to the beggining of `val` until it reaches length of `len` */
@@ -950,16 +981,16 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 		return newObj;
 	}
 
-	function postWithDefaults(url: string, jar: Jar, form: RequestForm) {
-		return post(url, jar, mergeWithDefaults(form), ctx.globalOptions);
+	async function postWithDefaults(url: string, jar: Jar, form: RequestForm) {
+		return await post(url, jar, mergeWithDefaults(form), ctx.globalOptions);
 	}
 
-	function getWithDefaults(url: string, jar: Jar, qs?: any) {
-		return get(url, jar, mergeWithDefaults(qs), ctx.globalOptions);
+	async function getWithDefaults(url: string, jar: Jar, qs?: any) {
+		return await get(url, jar, mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
-	function postFormDataWithDefault(url: string, jar: Jar, form: RequestForm, qs: any) {
-		return postFormData(url, jar, mergeWithDefaults(form), mergeWithDefaults(qs), ctx.globalOptions);
+	async function postFormDataWithDefault(url: string, jar: Jar, form: RequestForm, qs: any) {
+		return await postFormData(url, jar, mergeWithDefaults(form), mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
 	return {
@@ -970,8 +1001,7 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 }
 
 export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 0) {
-	return function (data: any): Bluebird<any> {
-		return Bluebird.try(function () {
+	return async function (data: any): Promise<any> {
 			log.verbose('parseAndCheckLogin', data.body);
 			if (data.statusCode >= 500 && data.statusCode < 600) {
 				if (retryCount >= 5) {
@@ -995,16 +1025,12 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 				);
 				const url = data.request.uri.protocol + '//' + data.request.uri.hostname + data.request.uri.pathname;
 				if (data.request.headers['Content-Type'].split(';')[0] === 'multipart/form-data') {
-					return Bluebird.delay(retryTime)
-						.then(function () {
-							return defaultFuncs.postFormData(url, ctx.jar, data.request.formData, {});
-						})
+					return new Promise(resolve => setTimeout(resolve, retryTime))
+						.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.formData, {}))
 						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
 				} else {
-					return Bluebird.delay(retryTime)
-						.then(function () {
-							return defaultFuncs.post(url, ctx.jar, data.request.formData);
-						})
+					return new Promise(resolve => setTimeout(resolve, retryTime))
+						.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.formData))
 						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
 				}
 			}
@@ -1026,7 +1052,7 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 
 			// In some cases the response contains only a redirect URL which should be followed
 			if (res.redirect && data.request.method === 'GET') {
-				return defaultFuncs.get(res.redirect, ctx.jar).then(parseAndCheckLogin(ctx, defaultFuncs));
+				return await defaultFuncs.get(res.redirect, ctx.jar).then(parseAndCheckLogin(ctx, defaultFuncs));
 			}
 
 			// TODO: handle multiple cookies?
@@ -1064,7 +1090,6 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 				throw { error: 'Not logged in.' };
 			}
 			return res;
-		});
 	};
 }
 

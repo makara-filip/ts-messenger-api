@@ -5,19 +5,14 @@ import Jar from './lib/jar';
 import cheerio from 'cheerio';
 import { Response } from 'request';
 import Api from './lib/api';
-import Bluebird from 'bluebird';
 
 const defaultLogRecordSize = 100;
 
-let ctx: ApiCtx;
-let defaultFuncs: Dfs;
-let api: Api;
-
-export default function login(
+export default async function login(
 	loginData: Credentials,
 	options: ApiOptions,
 	callback: (err?: Error, api?: Api) => void
-): void {
+): Promise<Api | undefined> {
 	const globalOptions: ApiOptions = {
 		selfListen: false,
 		listenEvents: false,
@@ -32,7 +27,7 @@ export default function login(
 	setOptions(globalOptions, options);
 
 	//TODO: Add support for appState
-	loginHelper(loginData.email, loginData.password, globalOptions, callback, loginData.appState);
+	return await loginHelper(loginData.email, loginData.password, globalOptions, callback, loginData.appState);
 }
 
 /** Sets `globalOptions` and npmlog based on the `options` attribute */
@@ -78,15 +73,19 @@ function setOptions(globalOptions: ApiOptions, options: ApiOptions): void {
 	});
 }
 
-function loginHelper(
+async function loginHelper(
 	email: string,
 	password: string,
 	globalOptions: ApiOptions,
 	callback: (err?: Error, api?: Api) => void,
 	appState?: AppState
 ) {
-	let mainPromise = null;
+	let mainPromise: Promise<any>;
 	const jar = new Jar();
+
+	let ctx: ApiCtx;
+	let defaultFuncs: Dfs;
+	let api: Api | undefined;
 
 	// If we're given an appState we loop through it and save each cookie into the jar.
 	if (appState) {
@@ -105,36 +104,34 @@ function loginHelper(
 			.get('https://www.facebook.com/', null, null, globalOptions)
 			.then(utils.saveCookies(jar))
 			.then(makeLogin(jar, email, password, globalOptions, callback))
-			.then(function () {
-				return utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar));
-			});
+			.then(async () => await utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar)));
 	}
 
 	mainPromise = mainPromise
-		.then((res: Response) => {
+		.then(async (res: Response) => {
 			// Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
 			const reg = /<meta http-equiv="refresh" content="0;url=([^"]+)[^>]+>/;
 			const redirect = reg.exec(res.body);
 			if (redirect && redirect[1]) {
-				return utils.get(redirect[1], jar, null, globalOptions).then(utils.saveCookies(jar));
+				return await utils.get(redirect[1], jar, null, globalOptions).then(utils.saveCookies(jar));
 			}
 			return res;
 		})
-		.then(res => {
+		.then((res: any) => {
 			// Define global state
 			const html = res.body;
 			const stuff = buildAPI(globalOptions, html, jar);
 			ctx = stuff.ctx;
-			defaultFuncs = stuff.defaultFuncs;
+			defaultFuncs = stuff.defaultFuncs; // TODO: remove the defaultFuncs, because they are already in the api
 			api = stuff.api;
 			return res;
 		})
-		.then(() => {
+		.then(async () => {
 			const form = {
 				reason: 6
 			};
 			log.info('login', 'Request to reconnect');
-			return defaultFuncs
+			return await defaultFuncs
 				.get('https://www.facebook.com/ajax/presence/reconnect.php', ctx.jar, form)
 				.then(utils.saveCookies(ctx.jar));
 		})
@@ -151,33 +148,32 @@ function loginHelper(
 				'a11y=' + utils.generateAccessiblityCookie() + '; path=/; domain=.facebook.com; secure',
 				'https://www.facebook.com'
 			);
-			return true;
 		});
 
 	// given a pageID we log in as a page
 	if (globalOptions.pageID) {
 		mainPromise = mainPromise
-			.then(() => {
-				return utils.get(
+			.then(async () => {
+				return await utils.get(
 					'https://www.facebook.com/' + ctx.globalOptions.pageID + '/messages/?section=messages&subsection=inbox',
 					ctx.jar,
 					null,
 					globalOptions
 				);
 			})
-			.then(resData => {
+			.then(async (resData: any) => {
 				let url = utils
 					.getFrom(resData.body, 'window.location.replace("https:\\/\\/www.facebook.com\\', '");')
 					.split('\\')
 					.join('');
 				url = url.substring(0, url.length - 1);
 
-				return utils.get('https://www.facebook.com' + url, ctx.jar, null, globalOptions);
+				return await utils.get('https://www.facebook.com' + url, ctx.jar, null, globalOptions);
 			});
 	}
 
 	// At the end we call the callback or catch an exception
-	(mainPromise as Bluebird<any>)
+	mainPromise
 		.then(() => {
 			log.info('login', 'Done logging in.');
 			return callback(undefined, api);
@@ -186,6 +182,9 @@ function loginHelper(
 			log.error('login', e.error || e);
 			callback(e);
 		});
+
+	await mainPromise;
+	return api;
 }
 
 function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
@@ -262,7 +261,7 @@ function makeLogin(
 	loginOptions: ApiOptions,
 	callback: (err?: Error, api?: Api) => void
 ) {
-	return function (res: Response) {
+	return async (res: Response) => {
 		const html: string = res.body;
 		const $ = cheerio.load(html);
 		let arr: { val: string; name?: string }[] = [];
@@ -302,9 +301,9 @@ function makeLogin(
 		// ---------- Very Hacky Part Ends -----------------
 
 		log.info('login', 'Logging in...');
-		return utils
+		return await utils
 			.post('https://www.facebook.com/login.php?login_attempt=1&lwv=110', jar, form, loginOptions)
-			.then((res: Response) => {
+			.then(async (res: Response) => {
 				utils.saveCookies(jar)(res);
 				const headers = res.headers;
 				if (!headers.location) {
@@ -316,10 +315,10 @@ function makeLogin(
 					log.info('login', 'You have login approvals turned on.');
 					const nextURL = 'https://www.facebook.com/checkpoint/?next=https%3A%2F%2Fwww.facebook.com%2Fhome.php';
 
-					return utils
+					return await utils
 						.get(headers.location, jar, null, loginOptions)
 						.then(utils.saveCookies(jar))
-						.then(res => {
+						.then(async (res: any) => {
 							const html = res.body;
 							// Make the form in advance which will contain the fb_dtsg and nh
 							const $ = cheerio.load(html);
@@ -336,19 +335,19 @@ function makeLogin(
 							if (html.indexOf('checkpoint/?next') > -1) {
 								throw {
 									error: 'login-approval',
-									continue: (code: string) => {
+									continue: async (code: string) => {
 										form.approvals_code = code;
 										form['submit[Continue]'] = 'Continue';
-										return utils
+										return await utils
 											.post(nextURL, jar, form, loginOptions)
 											.then(utils.saveCookies(jar))
-											.then(function () {
+											.then(async () => {
 												// Use the same form (safe I hope)
 												form.name_action_selected = 'save_device';
 
-												return utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
+												return await utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
 											})
-											.then(function (res) {
+											.then(async (res: any) => {
 												const headers = res.headers;
 												if (!headers.location && res.body.indexOf('Review Recent Login') > -1) {
 													throw { error: 'Something went wrong with login approvals.' };
@@ -358,9 +357,9 @@ function makeLogin(
 
 												// Simply call loginHelper because all it needs is the jar
 												// and will then complete the login process
-												return loginHelper(email, password, loginOptions, callback, appState);
+												return await loginHelper(email, password, loginOptions, callback, appState);
 											})
-											.catch(function (err) {
+											.catch((err: any) => {
 												callback(err);
 											});
 									}
@@ -378,16 +377,16 @@ function makeLogin(
 									form['submit[This Is Okay]'] = 'This Is Okay';
 								}
 
-								return utils
+								return await utils
 									.post(nextURL, jar, form, loginOptions)
 									.then(utils.saveCookies(jar))
-									.then(function () {
+									.then(async () => {
 										// Use the same form (safe I hope)
 										form.name_action_selected = 'save_device';
 
-										return utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
+										return await utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
 									})
-									.then(function (res) {
+									.then(async (res: any) => {
 										const headers = res.headers;
 
 										if (!headers.location && res.body.indexOf('Review Recent Login') > -1) {
@@ -398,15 +397,15 @@ function makeLogin(
 
 										// Simply call loginHelper because all it needs is the jar
 										// and will then complete the login process
-										return loginHelper(email, password, loginOptions, callback, appState);
+										return await loginHelper(email, password, loginOptions, callback, appState);
 									})
-									.catch(function (e) {
+									.catch((e: any) => {
 										callback(e);
 									});
 							}
 						});
 				}
-				return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar)) as any;
+				return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar));
 			});
 	};
 }

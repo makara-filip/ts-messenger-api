@@ -1,4 +1,3 @@
-import Bluebird from 'bluebird';
 import { LogLevels } from 'npmlog';
 import { Cookie } from 'tough-cookie';
 import Jar from './jar';
@@ -58,9 +57,9 @@ export interface ApiCtx {
 
 /** Default functions */
 export interface Dfs {
-	get: (url: string, jar: Jar, qs?: any) => Bluebird<any>;
-	post: (url: string, jar: Jar, form: any) => Bluebird<any>;
-	postFormData: (url: string, jar: Jar, form: any, qs: any) => Bluebird<any>;
+	get: (url: string, jar: Jar, qs?: any) => Promise<any>;
+	post: (url: string, jar: Jar, form: any) => Promise<any>;
+	postFormData: (url: string, jar: Jar, form: any, qs: any) => Promise<any>;
 }
 
 export interface RequestForm {
