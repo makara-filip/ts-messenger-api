@@ -11,23 +11,26 @@ import {
 	ReadReceipt,
 	RequestForm
 } from './types';
-// import r from 'request-promise-native';
-import r from 'request';
-import { Response } from 'request';
 import Jar from './jar';
 import stream from 'stream';
 import log from 'npmlog';
 import { Cookie } from 'tough-cookie';
-const request = r.defaults({ jar: true });
 
-export function getHeaders(url: string, options: ApiOptions): MessHeaders {
+import got, { Response } from 'got';
+const gotInstance = got.extend({
+	// followRedirect: false,
+	timeout: 60000,
+	http2: true
+});
+
+export function getHeaders(url: string, options: ApiOptions) {
 	return {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Referer: 'https://www.facebook.com/',
-		Host: url.replace('https://', '').split('/')[0],
+		// Host: url.replace('https://', '').split('/')[0],
 		Origin: 'https://www.facebook.com',
 		'User-Agent': options.userAgent,
-		Connection: 'keep-alive'
+		// Connection: 'keep-alive'
 	};
 }
 
@@ -43,7 +46,7 @@ export function isReadableStream(obj: unknown): boolean {
 /**
  * @param qs This is ussually null
  */
-export async function get(url: string, jar: Jar | null, qs: Record<string, unknown> | null, options: ApiOptions) {
+export async function get(url: string, jar: Jar | null, qs: Record<string, unknown> | null, options: ApiOptions): Promise<Response<string>> {
 	// I'm still confused about this
 	if (getType(qs) === 'Object') {
 		for (const prop in qs) {
@@ -52,59 +55,71 @@ export async function get(url: string, jar: Jar | null, qs: Record<string, unkno
 			}
 		}
 	}
-	const op = {
-		headers: getHeaders(url, options),
-		timeout: 60000,
-		qs: qs,
-		url: url,
-		method: 'GET',
-		jar: jar as Jar,
-		gzip: true
-	};
 
-	// TODO: This was modified
-	// const response = await request(op);
-	// // .then((res: any) => {
-	// // 	return res[0];
-	// // });
-	// return response;
-	const response = await new Promise((resolve, reject) => {
-		request(url, op, (err, res, body) => {
-			if (err) return reject(err);
-			resolve(res);
-		});
-	});
-	return response as Response;
-}
+	// const op = {
+	// 	headers: getHeaders(url, options),
+	// 	timeout: 60000,
+	// 	qs: qs,
+	// 	url: url,
+	// 	method: 'GET',
+	// 	jar: jar as Jar,
+	// 	gzip: true
+	// };
 
-export async function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions) {
-	const op = {
-		headers: getHeaders(url, options),
-		timeout: 60000,
-		url: url,
-		method: 'POST',
-		form: form,
-		jar: jar,
-		gzip: true
-	};
-
-	// TODO: This was modified
-	// return await new Promise((resolve, reject) => {
-	// 	request(url, op, (err, response, body) => {
+	// // TODO: This was modified
+	// // const response = await request(op);
+	// // // .then((res: any) => {
+	// // // 	return res[0];
+	// // // });
+	// // return response;
+	// const response = await new Promise((resolve, reject) => {
+	// 	request(url, op, (err, res, body) => {
 	// 		if (err) return reject(err);
-	// 		resolve(response);
+	// 		resolve(res);
 	// 	});
 	// });
-	// const response = await request(url, op).then((res: any) => {
-	// 	return res[0];
+	// return response as Response;
+	const response = await gotInstance.get(url, {
+		headers: getHeaders(url, options),
+		cookieJar: jar?._jar,
+	});
+	return response;
+}
+
+export async function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions): Promise<Response<string>> {
+	// const op = {
+	// 	headers: getHeaders(url, options),
+	// 	timeout: 60000,
+	// 	url: url,
+	// 	method: 'POST',
+	// 	form: form,
+	// 	jar: jar,
+	// 	gzip: true
+	// };
+
+	// // TODO: This was modified
+	// // return await new Promise((resolve, reject) => {
+	// // 	request(url, op, (err, response, body) => {
+	// // 		if (err) return reject(err);
+	// // 		resolve(response);
+	// // 	});
+	// // });
+	// // const response = await request(url, op).then((res: any) => {
+	// // 	return res[0];
+	// // });
+	// const response = await new Promise((resolve, reject) => {
+	// 	request(url, op, (err, res, body) => {
+	// 		if (err) return reject(err);
+	// 		resolve(res);
+	// 	});
 	// });
-	const response = await new Promise((resolve, reject) => {
-		request(url, op, (err, res, body) => {
-			if (err) return reject(err);
-			resolve(res);
-		});
-	}); 
-	return response as Response;
+	// return response as Response;
+	const response = await gotInstance.post(url, {
+		headers: getHeaders(url, options),
+		form: form,
+		cookieJar: jar._jar
+	});
+	return response;
 }
 
 export async function postFormData(
@@ -113,38 +128,44 @@ export async function postFormData(
 	form: RequestForm,
 	qs: Record<string, unknown>,
 	options: ApiOptions
-) {
-	const headers = getHeaders(url, options);
-	headers['Content-Type'] = 'multipart/form-data';
-	const op = {
-		headers: headers,
-		timeout: 60000,
-		url: url,
-		method: 'POST',
-		formData: form,
-		qs: qs,
-		jar: jar,
-		gzip: true
-	};
+): Promise<Response<string>> {
+	// const headers = getHeaders(url, options);
+	// headers['Content-Type'] = 'multipart/form-data';
 
-	// TODO: This was modified
-	// return await new Promise((resolve, reject) => {
-	// 	request(url, op, (err, response, body) => {
+	// const op = {
+	// 	headers: headers,
+	// 	timeout: 60000,
+	// 	url: url,
+	// 	method: 'POST',
+	// 	formData: form,
+	// 	qs: qs,
+	// 	jar: jar,
+	// 	gzip: true
+	// };
+
+	// // TODO: This was modified
+	// // return await new Promise((resolve, reject) => {
+	// // 	request(url, op, (err, response, body) => {
+	// // 		if (err) return reject(err);
+	// // 		resolve(response);
+	// // 	});
+	// // })
+	// // const response = await request(op).then(function (res: any) {
+	// // 	return res[0];
+	// // });
+	// // return response;
+	// const response = await new Promise((resolve, reject) => {
+	// 	request(url, op, (err, res, body) => {
 	// 		if (err) return reject(err);
-	// 		resolve(response);
+	// 		resolve(res);
 	// 	});
-	// })
-	// const response = await request(op).then(function (res: any) {
-	// 	return res[0];
 	// });
-	// return response;
-	const response = await new Promise((resolve, reject) => {
-		request(url, op, (err, res, body) => {
-			if (err) return reject(err);
-			resolve(res);
-		});
-	}); 
-	return response as Response;
+	// return response as Response;
+	return await gotInstance.post(url, {
+		headers: getHeaders(url, options),
+		form: form,
+		cookieJar: jar._jar
+	});
 }
 
 /** Appends zeroes to the beggining of `val` until it reaches length of `len` */
@@ -1001,7 +1022,7 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 }
 
 export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 0) {
-	return async function (data: any): Promise<any> {
+	return async (data: Response<string>): Promise<any> => {
 			log.verbose('parseAndCheckLogin', data.body);
 			if (data.statusCode >= 500 && data.statusCode < 600) {
 				if (retryCount >= 5) {
@@ -1023,15 +1044,18 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 						retryTime +
 						' milliseconds...'
 				);
-				const url = data.request.uri.protocol + '//' + data.request.uri.hostname + data.request.uri.pathname;
-				if (data.request.headers['Content-Type'].split(';')[0] === 'multipart/form-data') {
-					return new Promise(resolve => setTimeout(resolve, retryTime))
-						.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.formData, {}))
-						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
-				} else {
-					return new Promise(resolve => setTimeout(resolve, retryTime))
-						.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.formData))
-						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
+				// const url = data.request.options.protocol + '//' + data.request.uri.hostname + data.request.uri.pathname;
+				const url = data.request.options.url.toString();
+				if (data.request.options.headers['Content-Type']) {
+					if ((data.request.options.headers['Content-Type'] as string).split(';')[0] === 'multipart/form-data') {
+						return new Promise(resolve => setTimeout(resolve, retryTime))
+							.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.options.form, {}))
+							.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
+					} else {
+						return new Promise(resolve => setTimeout(resolve, retryTime))
+							.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.options.form))
+							.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
+					}
 				}
 			}
 			if (data.statusCode !== 200)
@@ -1051,7 +1075,7 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 			}
 
 			// In some cases the response contains only a redirect URL which should be followed
-			if (res.redirect && data.request.method === 'GET') {
+			if (res.redirect && data.request.options.method.toUpperCase() === 'GET') {
 				return await defaultFuncs.get(res.redirect, ctx.jar).then(parseAndCheckLogin(ctx, defaultFuncs));
 			}
 
@@ -1095,8 +1119,9 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 
 /** Returns a function with a res attribute, which saves received cookies to provided jar and returns `res` */
 export function saveCookies(jar: Jar) {
-	return function (res: Response): Response {
-		const cookies = res.headers['set-cookie'] || [];
+	return (res: Response<string>): Response<string> => {
+		// TODO: do we really need this?
+		const cookies = res.headers['set-cookie'] || []; 
 		cookies.forEach(function (c) {
 			if (c.indexOf('.facebook.com') > -1) {
 				jar.setCookie(c, 'https://www.facebook.com');

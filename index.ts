@@ -3,8 +3,9 @@ import * as utils from './lib/utils';
 import log, { LogLevels } from 'npmlog';
 import Jar from './lib/jar';
 import cheerio from 'cheerio';
-import { Response } from 'request';
+// import { Response } from 'request';
 import Api from './lib/api';
+import { Response } from 'got';
 
 const defaultLogRecordSize = 100;
 
@@ -108,7 +109,7 @@ async function loginHelper(
 	}
 
 	mainPromise = mainPromise
-		.then(async (res: Response) => {
+		.then(async (res: Response<string>) => {
 			// Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
 			const reg = /<meta http-equiv="refresh" content="0;url=([^"]+)[^>]+>/;
 			const redirect = reg.exec(res.body);
@@ -117,7 +118,7 @@ async function loginHelper(
 			}
 			return res;
 		})
-		.then((res: any) => {
+		.then((res: Response<string>) => {
 			// Define global state
 			const html = res.body;
 			const stuff = buildAPI(globalOptions, html, jar);
@@ -261,7 +262,7 @@ function makeLogin(
 	loginOptions: ApiOptions,
 	callback: (err?: Error, api?: Api) => void
 ) {
-	return async (res: Response) => {
+	return async (res: Response<string>) => {
 		const html: string = res.body;
 		const $ = cheerio.load(html);
 		let arr: { val: string; name?: string }[] = [];
@@ -303,7 +304,7 @@ function makeLogin(
 		log.info('login', 'Logging in...');
 		return await utils
 			.post('https://www.facebook.com/login.php?login_attempt=1&lwv=110', jar, form, loginOptions)
-			.then(async (res: Response) => {
+			.then(async (res: Response<string>) => {
 				utils.saveCookies(jar)(res);
 				const headers = res.headers;
 				if (!headers.location) {

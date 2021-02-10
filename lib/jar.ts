@@ -1,7 +1,7 @@
 import { Cookie, CookieJar, Store } from 'tough-cookie';
 
 export default class Jar {
-	private _jar: CookieJar;
+	public _jar: CookieJar;
 
 	constructor(store?: Store) {
 		this._jar = new CookieJar(store, { looseMode: true });

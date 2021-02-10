@@ -28,9 +28,9 @@
 	"dependencies": {
 		"cheerio": "^1.0.0-rc.5",
 		"events": "^3.2.0",
+		"got": "^11.8.1",
 		"mqtt": "^4.2.6",
 		"npmlog": "^4.1.2",
-		"request": "^2.88.2",
 		"tough-cookie": "^4.0.0",
 		"ts-node": "^9.1.1",
 		"txtgen": "^2.2.8",
@@ -41,7 +41,6 @@
 		"@types/events": "^3.0.0",
 		"@types/mocha": "^8.2.0",
 		"@types/npmlog": "^4.1.2",
-		"@types/request": "^2.48.5",
 		"@types/tough-cookie": "^4.0.0",
 		"@typescript-eslint/eslint-plugin": "^4.13.0",
 		"@typescript-eslint/parser": "^4.13.0",

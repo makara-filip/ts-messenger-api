@@ -47,7 +47,7 @@ describe('Fundamental API functioning', function () {
 		expect(api2.getAppState()).to.be.not.empty;
 	});
 
-	it('gets a friendslist of both test accounts', done => {
+	xit('gets a friendslist of both test accounts', done => {
 		let oneDone = false;
 		api1.getFriendsList((err, list) => {
 			if (err) throw err;
