@@ -29,7 +29,7 @@ export function getHeaders(url: string, options: ApiOptions) {
 		Referer: 'https://www.facebook.com/',
 		// Host: url.replace('https://', '').split('/')[0],
 		Origin: 'https://www.facebook.com',
-		'User-Agent': options.userAgent,
+		'User-Agent': options.userAgent
 		// Connection: 'keep-alive'
 	};
 }
@@ -46,7 +46,12 @@ export function isReadableStream(obj: unknown): boolean {
 /**
  * @param qs This is ussually null
  */
-export async function get(url: string, jar: Jar | null, qs: Record<string, unknown> | null, options: ApiOptions): Promise<Response<string>> {
+export async function get(
+	url: string,
+	jar: Jar | null,
+	qs: Record<string, unknown> | null,
+	options: ApiOptions
+): Promise<Response<string>> {
 	// I'm still confused about this
 	if (getType(qs) === 'Object') {
 		for (const prop in qs) {
@@ -81,7 +86,7 @@ export async function get(url: string, jar: Jar | null, qs: Record<string, unkno
 	// return response as Response;
 	const response = await gotInstance.get(url, {
 		headers: getHeaders(url, options),
-		cookieJar: jar?._jar,
+		cookieJar: jar?._jar
 	});
 	return response;
 }
@@ -126,11 +131,11 @@ export async function postFormData(
 	url: string,
 	jar: Jar,
 	form: RequestForm,
-	qs: Record<string, unknown>,
+	qs: Record<string, any>,
 	options: ApiOptions
 ): Promise<Response<string>> {
-	// const headers = getHeaders(url, options);
-	// headers['Content-Type'] = 'multipart/form-data';
+	const headers = getHeaders(url, options);
+	headers['Content-Type'] = 'multipart/form-data';
 
 	// const op = {
 	// 	headers: headers,
@@ -162,8 +167,9 @@ export async function postFormData(
 	// });
 	// return response as Response;
 	return await gotInstance.post(url, {
-		headers: getHeaders(url, options),
-		form: form,
+		headers: headers,
+		form,
+		searchParams: qs,
 		cookieJar: jar._jar
 	});
 }
@@ -1023,97 +1029,97 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 
 export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 0) {
 	return async (data: Response<string>): Promise<any> => {
-			log.verbose('parseAndCheckLogin', data.body);
-			if (data.statusCode >= 500 && data.statusCode < 600) {
-				if (retryCount >= 5) {
-					throw {
-						error: 'Request retry failed. Check the `res` and `statusCode` property on this error.',
-						statusCode: data.statusCode,
-						res: data.body
-					};
-				}
-				retryCount++;
-				const retryTime = Math.floor(Math.random() * 5000);
-				log.warn(
-					'parseAndCheckLogin',
-					'Got status code ' +
-						data.statusCode +
-						' - ' +
-						retryCount +
-						'. attempt to retry in ' +
-						retryTime +
-						' milliseconds...'
-				);
-				// const url = data.request.options.protocol + '//' + data.request.uri.hostname + data.request.uri.pathname;
-				const url = data.request.options.url.toString();
-				if (data.request.options.headers['Content-Type']) {
-					if ((data.request.options.headers['Content-Type'] as string).split(';')[0] === 'multipart/form-data') {
-						return new Promise(resolve => setTimeout(resolve, retryTime))
-							.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.options.form, {}))
-							.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
-					} else {
-						return new Promise(resolve => setTimeout(resolve, retryTime))
-							.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.options.form))
-							.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
-					}
-				}
-			}
-			if (data.statusCode !== 200)
-				throw new Error(
-					'parseAndCheckLogin got status code: ' + data.statusCode + '. Bailing out of trying to parse response.'
-				);
-
-			let res = null;
-			try {
-				res = JSON.parse(makeParsable(data.body) as string);
-			} catch (e) {
+		log.verbose('parseAndCheckLogin', data.body);
+		if (data.statusCode >= 500 && data.statusCode < 600) {
+			if (retryCount >= 5) {
 				throw {
-					error: 'JSON.parse error. Check the `detail` property on this error.',
-					detail: e,
+					error: 'Request retry failed. Check the `res` and `statusCode` property on this error.',
+					statusCode: data.statusCode,
 					res: data.body
 				};
 			}
-
-			// In some cases the response contains only a redirect URL which should be followed
-			if (res.redirect && data.request.options.method.toUpperCase() === 'GET') {
-				return await defaultFuncs.get(res.redirect, ctx.jar).then(parseAndCheckLogin(ctx, defaultFuncs));
+			retryCount++;
+			const retryTime = Math.floor(Math.random() * 5000);
+			log.warn(
+				'parseAndCheckLogin',
+				'Got status code ' +
+					data.statusCode +
+					' - ' +
+					retryCount +
+					'. attempt to retry in ' +
+					retryTime +
+					' milliseconds...'
+			);
+			// const url = data.request.options.protocol + '//' + data.request.uri.hostname + data.request.uri.pathname;
+			const url = data.request.options.url.toString();
+			if (data.request.options.headers['Content-Type']) {
+				if ((data.request.options.headers['Content-Type'] as string).split(';')[0] === 'multipart/form-data') {
+					return new Promise(resolve => setTimeout(resolve, retryTime))
+						.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.options.form, {}))
+						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
+				} else {
+					return new Promise(resolve => setTimeout(resolve, retryTime))
+						.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.options.form))
+						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
+				}
 			}
+		}
+		if (data.statusCode !== 200)
+			throw new Error(
+				'parseAndCheckLogin got status code: ' + data.statusCode + '. Bailing out of trying to parse response.'
+			);
 
-			// TODO: handle multiple cookies?
-			if (
-				res.jsmods &&
-				res.jsmods.require &&
-				Array.isArray(res.jsmods.require[0]) &&
-				res.jsmods.require[0][0] === 'Cookie'
-			) {
-				res.jsmods.require[0][3][0] = res.jsmods.require[0][3][0].replace('_js_', '');
-				const cookie = formatCookie(res.jsmods.require[0][3], 'facebook');
-				const cookie2 = formatCookie(res.jsmods.require[0][3], 'messenger');
-				ctx.jar.setCookie(cookie, 'https://www.facebook.com');
-				ctx.jar.setCookie(cookie2, 'https://www.messenger.com');
-			}
+		let res = null;
+		try {
+			res = JSON.parse(makeParsable(data.body) as string);
+		} catch (e) {
+			throw {
+				error: 'JSON.parse error. Check the `detail` property on this error.',
+				detail: e,
+				res: data.body
+			};
+		}
 
-			// On every request we check if we got a DTSG and we mutate the context so that we use the latest
-			// one for the next requests.
-			if (res.jsmods && Array.isArray(res.jsmods.require)) {
-				const arr = res.jsmods.require;
-				for (const i in arr) {
-					if (arr[i][0] === 'DTSG' && arr[i][1] === 'setToken') {
-						ctx.fb_dtsg = arr[i][3][0];
+		// In some cases the response contains only a redirect URL which should be followed
+		if (res.redirect && data.request.options.method.toUpperCase() === 'GET') {
+			return await defaultFuncs.get(res.redirect, ctx.jar).then(parseAndCheckLogin(ctx, defaultFuncs));
+		}
 
-						// Update ttstamp since that depends on fb_dtsg
-						ctx.ttstamp = '2';
-						for (let j = 0; j < ctx.fb_dtsg.length; j++) {
-							ctx.ttstamp += ctx.fb_dtsg.charCodeAt(j);
-						}
+		// TODO: handle multiple cookies?
+		if (
+			res.jsmods &&
+			res.jsmods.require &&
+			Array.isArray(res.jsmods.require[0]) &&
+			res.jsmods.require[0][0] === 'Cookie'
+		) {
+			res.jsmods.require[0][3][0] = res.jsmods.require[0][3][0].replace('_js_', '');
+			const cookie = formatCookie(res.jsmods.require[0][3], 'facebook');
+			const cookie2 = formatCookie(res.jsmods.require[0][3], 'messenger');
+			ctx.jar.setCookie(cookie, 'https://www.facebook.com');
+			ctx.jar.setCookie(cookie2, 'https://www.messenger.com');
+		}
+
+		// On every request we check if we got a DTSG and we mutate the context so that we use the latest
+		// one for the next requests.
+		if (res.jsmods && Array.isArray(res.jsmods.require)) {
+			const arr = res.jsmods.require;
+			for (const i in arr) {
+				if (arr[i][0] === 'DTSG' && arr[i][1] === 'setToken') {
+					ctx.fb_dtsg = arr[i][3][0];
+
+					// Update ttstamp since that depends on fb_dtsg
+					ctx.ttstamp = '2';
+					for (let j = 0; j < ctx.fb_dtsg.length; j++) {
+						ctx.ttstamp += ctx.fb_dtsg.charCodeAt(j);
 					}
 				}
 			}
+		}
 
-			if (res.error === 1357001) {
-				throw { error: 'Not logged in.' };
-			}
-			return res;
+		if (res.error === 1357001) {
+			throw { error: 'Not logged in.' };
+		}
+		return res;
 	};
 }
 
@@ -1121,7 +1127,7 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 export function saveCookies(jar: Jar) {
 	return (res: Response<string>): Response<string> => {
 		// TODO: do we really need this?
-		const cookies = res.headers['set-cookie'] || []; 
+		const cookies = res.headers['set-cookie'] || [];
 		cookies.forEach(function (c) {
 			if (c.indexOf('.facebook.com') > -1) {
 				jar.setCookie(c, 'https://www.facebook.com');

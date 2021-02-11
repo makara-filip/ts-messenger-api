@@ -47,7 +47,7 @@ describe('Fundamental API functioning', function () {
 		expect(api2.getAppState()).to.be.not.empty;
 	});
 
-	xit('gets a friendslist of both test accounts', done => {
+	it('gets a friendslist of both test accounts', done => {
 		let oneDone = false;
 		api1.getFriendsList((err, list) => {
 			if (err) throw err;
@@ -114,11 +114,7 @@ describe('Fundamental API functioning', function () {
 
 		// send the actual message
 		messageWasSent = true;
-		api1.sendMessage(
-			{ body: messageBody },
-			api2.ctx.userID,
-			err => expect(err).to.not.exist
-		);
+		api1.sendMessage({ body: messageBody }, api2.ctx.userID, err => expect(err).to.not.exist);
 	});
 
 	xit('sends an image attachment and recieves it in another account', done => {
