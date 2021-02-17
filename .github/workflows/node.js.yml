@@ -5,7 +5,7 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ main, sending-attachments ]
+    branches: [ main, sending-attachments, async-transition-2 ]
   pull_request:
     branches: [ main ]
 

@@ -117,7 +117,7 @@ describe('Fundamental API functioning', function () {
 		api1.sendMessage({ body: messageBody }, api2.ctx.userID, err => expect(err).to.not.exist);
 	});
 
-	xit('sends an image attachment and recieves it in another account', done => {
+	it('sends an image attachment and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		let messageWasSent = false;
 		let messageWasRecieved = false;
