@@ -18,7 +18,7 @@ import {
 	Typ,
 	WebsocketContent
 } from './types';
-import { UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
+import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
 import * as formatters from './formatters';
 import mqtt from 'mqtt';
@@ -383,18 +383,18 @@ export default class Api {
 			app_id: '772021112871879'
 		};
 	}
-	private sendWebsocketContent(websocketContent: WebsocketContent, callback: (err?: unknown) => void): void {
-		if (!this.ctx.mqttClient)
-			return callback(new Error('This function requires the websocket client to be initialised.'));
+	private async sendWebsocketContent(websocketContent: WebsocketContent): Promise<void> {
+		this.checkForActiveState();
 
 		// json-stringify the payload property (if it hasn't been previously)
 		// because (slightly retarded) Facebook requires it
 		if (typeof websocketContent.payload === 'object')
 			websocketContent.payload = JSON.stringify(websocketContent.payload);
 
-		this.ctx.mqttClient.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) => {
-			// console.log(err, packet);
-			callback(err);
+		return new Promise((resolve, reject) => {
+			this.ctx.mqttClient?.publish('/ls_req', JSON.stringify(websocketContent), {}, (err, packet) =>
+				err ? reject(err) : resolve()
+			);
 		});
 	}
 
@@ -868,11 +868,10 @@ export default class Api {
 	 * @param threadID ID of a thread to send the message to
 	 * @param callback Will be called when the message was successfully sent or rejected
 	 */
-	sendMessage(msg: OutgoingMessage, threadID: ThreadID, callback: (err?: unknown) => void = () => {}): void {
+	async sendMessage(msg: OutgoingMessage, threadID: ThreadID): Promise<void> {
 		this.checkForActiveState();
 
 		const wsContent = this.createWebsocketContent();
-		let isWaiting = false; // waiting for attachments to upload, for example
 		this.websocketTaskNumber++;
 
 		if (msg.sticker) {
@@ -892,35 +891,24 @@ export default class Api {
 		}
 		if (msg.attachment) {
 			if (!(msg.attachment instanceof Array)) msg.attachment = [msg.attachment];
-			isWaiting = true;
 
-			this.uploadAttachment(msg.attachment, (err, files) => {
-				if (err) return callback(err);
-				if (!files) {
-					isWaiting = false;
-					return;
-				}
-
-				files.forEach(file => {
-					// for each attachment id, create a new task (as Facebook does)
-					wsContent.payload.tasks.push({
-						label: '46',
-						payload: JSON.stringify({
-							thread_id: threadID,
-							otid: utils.generateOfflineThreadingID(),
-							source: 0,
-							send_type: OutgoingMessageSendType.Attachment,
-							text: msg.body ? msg.body : null,
-							attachment_fbids: [getAttachmentID(file)] // here is the actual attachment ID
-						}),
-						queue_name: threadID.toString(),
-						task_id: this.websocketTaskNumber++, // increment the task number after each task
-						failure_count: null
-					});
+			const files = await this.uploadAttachment(msg.attachment);
+			files.forEach(file => {
+				// for each attachment id, create a new task (as Facebook does)
+				wsContent.payload.tasks.push({
+					label: '46',
+					payload: JSON.stringify({
+						thread_id: threadID,
+						otid: utils.generateOfflineThreadingID(),
+						source: 0,
+						send_type: OutgoingMessageSendType.Attachment,
+						text: msg.body ? msg.body : null,
+						attachment_fbids: [getAttachmentID(file)] // here is the actual attachment ID
+					}),
+					queue_name: threadID.toString(),
+					task_id: this.websocketTaskNumber++, // increment the task number after each task
+					failure_count: null
 				});
-
-				isWaiting = false;
-				this.sendWebsocketContent(wsContent, callback); // TODO: re-do this when big ASYNC refactor
 			});
 		}
 		// handle this only when there are no other properties, because they are handled in other statements
@@ -966,12 +954,10 @@ export default class Api {
 			});
 		}
 
-		if (!isWaiting)
-			// waiting for the attachments to upload
-			this.sendWebsocketContent(wsContent, callback);
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	unsendMessage(messageID: MessageID, callback: (err?: unknown) => void = () => {}): void {
+	async unsendMessage(messageID: MessageID): Promise<void> {
 		this.checkForActiveState();
 		if (!messageID) throw new Error('Invalid input to unsendMessage method');
 
@@ -983,12 +969,12 @@ export default class Api {
 			task_id: this.websocketTaskNumber,
 			failure_count: null
 		});
-		this.sendWebsocketContent(wsContent, callback);
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	forwardMessage(messageID: MessageID, threadID: ThreadID, callback: (err: unknown) => void): void {
+	async forwardMessage(messageID: MessageID, threadID: ThreadID): Promise<void> {
 		this.checkForActiveState();
-		if (!(messageID && threadID)) callback(new Error('Invalid input to forwardMessage method'));
+		if (!(messageID && threadID)) throw new Error('Invalid input to forwardMessage method');
 
 		const wsContent = this.createWebsocketContent();
 		wsContent.payload.tasks.push({
@@ -1004,100 +990,77 @@ export default class Api {
 			task_id: this.websocketTaskNumber,
 			failure_count: null
 		});
-		this.sendWebsocketContent(wsContent, callback);
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	private uploadAttachment(
-		attachments: stream.Readable[],
-		callback: (err: unknown, files?: UploadGeneralAttachmentResponse[]) => void
-	): void {
-		const uploadingPromises = attachments.map(att => {
-			if (!utils.isReadableStream(att))
-				throw callback(new TypeError(`Attachment should be a readable stream and not ${utils.getType(att)}.`));
+	private async uploadAttachment(attachments: stream.Readable[]): Promise<UploadGeneralAttachmentResponse[]> {
+		return await Promise.all(
+			attachments.map(async att => {
+				if (!utils.isReadableStream(att))
+					throw new TypeError(`Attachment should be a readable stream and not ${utils.getType(att)}.`);
 
-			const formData = new FormData();
-			formData.append('upload_1024', att);
-			// formData.append('voice_clip', 'true'); // is this necessary??
+				const formData = new FormData();
+				formData.append('upload_1024', att);
+				// formData.append('voice_clip', 'true'); // is this necessary??
 
-			return this._defaultFuncs
-				.postFormData2('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, formData, {})
-				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-				.then((resData: any) => {
-					if (resData.error) throw resData;
+				return await this._defaultFuncs
+					.postFormData2('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, formData, {})
+					.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+					.then((resData: any) => {
+						if (resData.error) throw resData;
 
-					// We have to return the data unformatted unless we want to change it back in sendMessage.
-					return resData.payload.metadata[0] as UploadGeneralAttachmentResponse;
-				});
-		});
-
-		Promise.all(uploadingPromises)
-			.then((resData: UploadGeneralAttachmentResponse[]) => {
-				callback(null, resData);
+						// We have to return the data unformatted unless we want to change it back in sendMessage.
+						return resData.payload.metadata[0] as UploadGeneralAttachmentResponse;
+					});
 			})
-			.catch(err => {
-				log.error('uploadAttachment', err);
-				return callback(err);
-			});
+		);
 	}
 
 	/** Sends a typing indicator to the specified thread.
 	 * @param threadID the specified thread to send the indicator
 	 * @param isTyping the state of typing indicator
 	 * @param timeout the time in milliseconds after which to turn off the typing state
-	 * (if the state was set to true) - recommended 20000 (20 seconds) */ 
-	sendTypingIndicator(threadID: ThreadID, isTyping: boolean, timeout: number, callback: (err?: unknown) => void = () => {}): void {
+	 * (if the state was set to true) - recommended 20000 (20 seconds) */
+	async sendTypingIndicator(threadID: ThreadID, isTyping: boolean, timeout = 20000): Promise<void> {
 		this.checkForActiveState();
-		if (!threadID) return callback(new Error('Invalid input to sendTypingIndicator method.'));
+		if (!threadID) throw new Error('Invalid input to sendTypingIndicator method.');
 
 		// we need to know whether the thread is a group
 		// TODO: transform to getThreadInfo when it's available
-		this.getThreadHistory(threadID, 1, undefined, (err, history) => {
-			if (err) return callback(new Error('An error 1 occuder while checking whether the thread was a group or not.'));
-			if (!history)
-				return callback(new Error('An error 2 occuder while checking whether the thread was a group or not.'));
-			if (!history.length)
-				return callback(new Error('An error 3 occuder while checking whether the thread was a group or not.'));
+		const history = await this.getThreadHistory(threadID, 1, undefined);
+		if (!history) throw new Error('An error 2 occuder while checking whether the thread was a group or not.');
+		if (!history.length) throw new Error('An error 3 occuder while checking whether the thread was a group or not.');
 
-			const wsContent = this.createWebsocketContent(4);
-			// typing indication is slightly different from message sending
-			wsContent.payload = JSON.stringify({
-				label: '3',
-				payload: JSON.stringify({
-					thread_key: threadID,
-					is_group_thread: history[0].isGroup, // group boolean here
-					is_typing: isTyping
-				}),
-				version: '2667723500019469'
-			});
-
-			// automatically turn off after the timeout (otherwise it would be forever, I've tested that )
-			if (isTyping) setTimeout(() => this.sendTypingIndicator(threadID, false, -1, callback), timeout);
-			this.sendWebsocketContent(wsContent, callback);
+		const wsContent = this.createWebsocketContent(4);
+		// typing indication is slightly different from message sending
+		wsContent.payload = JSON.stringify({
+			label: '3',
+			payload: JSON.stringify({
+				thread_key: threadID,
+				is_group_thread: history[0].isGroup, // group boolean here
+				is_typing: isTyping
+			}),
+			version: '2667723500019469'
 		});
+
+		// automatically turn off after the timeout (otherwise it would be forever, I've tested that )
+		if (isTyping) setTimeout(() => this.sendTypingIndicator(threadID, false, -1), timeout);
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	getUserInfo(id: UserID | UserID[], callback: (err: any, info?: UserInfoGeneralDictByUserId) => void): void {
-		if (!callback) {
-			throw { error: 'getUserInfo: need callback' };
-		}
-		if (!(id instanceof Array)) id = [id];
-
+	async getUserInfo(id: UserID[]): Promise<UserInfoGeneralDictByUserId> {
 		const form: { [index: string]: UserID } = {};
 		id.map((v, i) => {
 			form['ids[' + i + ']'] = v;
 		});
-		this._defaultFuncs
+		return await this._defaultFuncs
 			.post('https://www.facebook.com/chat/user_info/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then(resData => {
 				if (resData.error) {
 					throw resData;
 				}
-				return callback(null, this.formatData(resData.payload.profiles));
-			})
-			.catch(function (err) {
-				log.error('getUserInfo', err);
-				return callback(err);
+				return this.formatData(resData.payload.profiles);
 			});
 	}
 	private formatData(data: any): Map<UserID, UserInfoGeneral> {
@@ -1450,27 +1413,18 @@ export default class Api {
 			});
 	}
 
-	getFriendsList(callback: (err?: any, info?: any) => void): void {
-		this._defaultFuncs
+	async getFriendsList(): Promise<FriendsList> {
+		return await this._defaultFuncs
 			.postFormData('https://www.facebook.com/chat/user_info_all', this.ctx.jar, {}, { viewer: this.ctx.userID })
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then((resData: any) => {
 				if (!resData) throw { error: 'getFriendsList returned empty object.' };
 				if (resData.error) throw resData;
-				callback(null, resData);
-			})
-			.catch((err: any) => {
-				log.error('getFriendsList', err);
-				return callback(err);
+				return resData as FriendsList;
 			});
 	}
 
-	getThreadHistory(
-		threadID: ThreadID,
-		amount: number,
-		timestamp: number | undefined,
-		callback: (err: any, history?: Message[]) => void
-	): void {
+	async getThreadHistory(threadID: ThreadID, amount: number, timestamp: number | undefined): Promise<Message[]> {
 		// `queries` has to be a string. I couldn't tell from the dev console. This
 		// took me a really long time to figure out. I deserve a cookie for this.
 		const form = {
@@ -1490,7 +1444,7 @@ export default class Api {
 			})
 		};
 
-		this._defaultFuncs
+		return await this._defaultFuncs
 			.post('https://www.facebook.com/api/graphqlbatch/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then((resData: any) => {
@@ -1504,11 +1458,7 @@ export default class Api {
 					throw new Error('well darn there was an error_result');
 				}
 
-				callback(null, formatters.formatMessagesGraphQLResponse(resData[0]));
-			})
-			.catch(function (err) {
-				log.error('getThreadHistoryGraphQL', err);
-				return callback(err);
+				return formatters.formatMessagesGraphQLResponse(resData[0]);
 			});
 	}
 }

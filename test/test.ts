@@ -18,6 +18,7 @@ describe('Fundamental API functioning', function () {
 		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'justin.json')).toString());
 		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'azihad.json')).toString());
 	});
+
 	it('should have the AppStates loaded', () => {
 		expect(appState1, '1st AppState not loaded').to.exist;
 		expect(appState1, '1st AppState not loaded').to.be.not.empty;
@@ -39,20 +40,11 @@ describe('Fundamental API functioning', function () {
 		expect(api2.getAppState()).to.be.not.empty;
 	});
 
-	it('gets a friendslist of both test accounts', done => {
-		let oneDone = false;
-		api1.getFriendsList((err, list) => {
-			if (err) throw err;
-			expect(list).to.exist;
-			if (oneDone) done();
-			else oneDone = true;
-		});
-		api2.getFriendsList((err, list) => {
-			if (err) throw err;
-			expect(list).to.exist;
-			if (oneDone) done();
-			else oneDone = true;
-		});
+	it('gets a friendslist of both test accounts', async () => {
+		const list1 = api1.getFriendsList();
+		const list2 = api2.getFriendsList();
+		expect(await list1).to.exist;
+		expect(await list2).to.exist;
 	});
 
 	let emitter: EventEmitter; // this will emit events from the second api
@@ -106,7 +98,7 @@ describe('Fundamental API functioning', function () {
 
 		// send the actual message
 		messageWasSent = true;
-		api1.sendMessage({ body: messageBody }, api2.ctx.userID, err => expect(err).to.not.exist);
+		api1.sendMessage({ body: messageBody }, api2.ctx.userID);
 	});
 
 	it('sends an image attachment and recieves it in another account', done => {
@@ -133,8 +125,7 @@ describe('Fundamental API functioning', function () {
 		messageWasSent = true;
 		api1.sendMessage(
 			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/image.jpg')) },
-			api2.ctx.userID,
-			err => expect(err).to.not.exist
+			api2.ctx.userID
 		);
 	});
 
@@ -162,8 +153,7 @@ describe('Fundamental API functioning', function () {
 		messageWasSent = true;
 		api1.sendMessage(
 			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/audio.mp3')) },
-			api2.ctx.userID,
-			err => expect(err).to.not.exist
+			api2.ctx.userID
 		);
 	});
 
@@ -191,8 +181,7 @@ describe('Fundamental API functioning', function () {
 		messageWasSent = true;
 		api1.sendMessage(
 			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/video.mp4')) },
-			api2.ctx.userID,
-			err => expect(err).to.not.exist
+			api2.ctx.userID
 		);
 	});
 
@@ -222,19 +211,16 @@ describe('Fundamental API functioning', function () {
 		emitter.addListener('event', listener);
 
 		indicatorWasSent = true;
-		api1.sendTypingIndicator(api2.ctx.userID, true, 4000, err => expect(err).to.not.exist);
+		api1.sendTypingIndicator(api2.ctx.userID, true, 4000);
 	});
 
-	it('should get thread history', done => {
-		api1.getThreadHistory('100037075550522', 20, undefined, (err, history) => {
-			expect(err).to.be.null;
-			expect(history).to.exist;
-			if (history) {
-				expect(history).to.not.be.empty;
-				expect(history[0]).to.not.be.empty;
-			}
-			done();
-		});
+	it('should get thread history', async () => {
+		const history = await api1.getThreadHistory('100037075550522', 20, undefined);
+		expect(history).to.exist;
+		if (history) {
+			expect(history).to.not.be.empty;
+			expect(history[0]).to.not.be.empty;
+		}
 	});
 
 	after(() => {
@@ -242,7 +228,7 @@ describe('Fundamental API functioning', function () {
 		api2?.stopListening();
 		emitter?.removeAllListeners();
 
-		const endTime: Date = new Date();
+		const endTime = new Date();
 		console.log(
 			`The tests have completed. Timestamp: ${endTime.getTime()}. Duration: ${
 				endTime.getTime() - startTime.getTime()
