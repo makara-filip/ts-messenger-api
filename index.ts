@@ -9,11 +9,7 @@ import { Response } from 'got';
 
 const defaultLogRecordSize = 100;
 
-export default async function login(
-	loginData: Credentials,
-	options: ApiOptions,
-	callback: (err?: Error, api?: Api) => void
-): Promise<Api | undefined> {
+export default async function login(loginData: Credentials, options: ApiOptions): Promise<Api | undefined> {
 	const globalOptions: ApiOptions = {
 		selfListen: false,
 		listenEvents: false,
@@ -28,7 +24,7 @@ export default async function login(
 	setOptions(globalOptions, options);
 
 	//TODO: Add support for appState
-	return await loginHelper(loginData.email, loginData.password, globalOptions, callback, loginData.appState);
+	return await loginHelper(loginData.email, loginData.password, globalOptions, loginData.appState);
 }
 
 /** Sets `globalOptions` and npmlog based on the `options` attribute */
@@ -74,13 +70,7 @@ function setOptions(globalOptions: ApiOptions, options: ApiOptions): void {
 	});
 }
 
-async function loginHelper(
-	email: string,
-	password: string,
-	globalOptions: ApiOptions,
-	callback: (err?: Error, api?: Api) => void,
-	appState?: AppState
-) {
+async function loginHelper(email: string, password: string, globalOptions: ApiOptions, appState?: AppState) {
 	let mainPromise: Promise<any>;
 	const jar = new Jar();
 
@@ -104,8 +94,10 @@ async function loginHelper(
 		mainPromise = utils
 			.get('https://www.facebook.com/', null, null, globalOptions)
 			.then(utils.saveCookies(jar))
-			.then(makeLogin(jar, email, password, globalOptions, callback))
-			.then(async () => await utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar)));
+			.then(makeLogin(jar, email, password, globalOptions))
+			.then(
+				async () => await utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar))
+			);
 	}
 
 	mainPromise = mainPromise
@@ -173,36 +165,23 @@ async function loginHelper(
 			});
 	}
 
-	// At the end we call the callback or catch an exception
-	mainPromise
-		.then(() => {
-			log.info('login', 'Done logging in.');
-			return callback(undefined, api);
-		})
-		.catch((e: any) => {
-			log.error('login', e.error || e);
-			callback(e);
-		});
-
 	await mainPromise;
+	log.info('login', 'Done logging in.');
 	return api;
 }
 
 function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
-	const maybeCookie = jar
-		.getCookies('https://www.facebook.com')
-		.filter(val => val.cookieString().split('=')[0] == 'c_user');
+	const userIdCookies = jar.getCookies('https://www.facebook.com').filter(cookie => cookie.key === 'c_user');
 
-	if (maybeCookie.length === 0) {
+	if (userIdCookies.length === 0) {
 		throw {
 			error:
 				'Error retrieving userID. This can be caused by a lot of things, including getting blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify.'
 		};
 	}
 
-	const userID = maybeCookie[0].cookieString().split('=')[1].toString();
+	const userID = userIdCookies[0].value;
 	log.info('login', 'Logged in');
-
 	const clientID = ((Math.random() * 2147483648) | 0).toString(16);
 
 	// All data available to api functions
@@ -218,50 +197,13 @@ function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
 		lastSeqId: 0,
 		syncToken: undefined
 	};
-
-	// TODO: Implement this to Api
-	// let api = {
-	// 	setOptions: setOptions.bind(null, globalOptions),
-	// 	getAppState: function getAppState() {
-	// 		return utils.getAppState(jar);
-	// 	}
-	// 	// TODO: finish this
-	// };
-
-	// // const apiFuncNames = [
-	// //   'deleteMessage',
-	// //   'getCurrentUserID',
-	// //   'getFriendsList',
-	// //   'getThreadHistory',
-	// //   'getThreadInfo',
-	// //   'getThreadList',
-	// //   'getUserID',
-	// //   'getUserInfo',
-	// //   'handleMessageRequest',
-	// //   'listenMqtt',
-	// //   'logout',
-	// //   'sendMessage'
-	// // ];
-
 	const defaultFuncs: Dfs = utils.makeDefaults(html, userID, ctx);
 	const api = new Api(defaultFuncs, ctx);
-
-	// // Load all api functions in a loop
-	// apiFuncNames.map(function (v) {
-	// 	api[v] = require('./src/' + v)(defaultFuncs, api, ctx);
-	// });
-
 	return { ctx, defaultFuncs, api };
 }
 
 /** Magic function */
-function makeLogin(
-	jar: Jar,
-	email: string,
-	password: string,
-	loginOptions: ApiOptions,
-	callback: (err?: Error, api?: Api) => void
-) {
+function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiOptions) {
 	return async (res: Response<string>) => {
 		const html: string = res.body;
 		const $ = cheerio.load(html);
@@ -358,10 +300,10 @@ function makeLogin(
 
 												// Simply call loginHelper because all it needs is the jar
 												// and will then complete the login process
-												return await loginHelper(email, password, loginOptions, callback, appState);
+												return await loginHelper(email, password, loginOptions, appState);
 											})
 											.catch((err: any) => {
-												callback(err);
+												throw err;
 											});
 									}
 								};
@@ -398,10 +340,10 @@ function makeLogin(
 
 										// Simply call loginHelper because all it needs is the jar
 										// and will then complete the login process
-										return await loginHelper(email, password, loginOptions, callback, appState);
+										return await loginHelper(email, password, loginOptions, appState);
 									})
 									.catch((e: any) => {
-										callback(e);
+										throw e;
 									});
 							}
 						});

@@ -26,19 +26,11 @@ describe('Fundamental API functioning', function () {
 	});
 
 	let api1: Api, api2: Api;
-	it('performs login 1', done => {
-		login({ appState: appState1, email: '', password: '' }, {}, (err, iapi) => {
-			if (err) throw err;
-			api1 = iapi as Api;
-			done();
-		});
+	it('performs login 1', async () => {
+		api1 = (await login({ appState: appState1, email: '', password: '' }, {})) as Api;
 	});
-	it('performs login 2', done => {
-		login({ appState: appState2, email: '', password: '' }, {}, (err, iapi) => {
-			if (err) throw err;
-			api2 = iapi as Api;
-			done();
-		});
+	it('performs login 2', async () => {
+		api2 = (await login({ appState: appState2, email: '', password: '' }, {})) as Api;
 	});
 	it('should have both the test accounts logged in', () => {
 		expect(api1).to.exist;
