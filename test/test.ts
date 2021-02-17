@@ -76,6 +76,35 @@ describe('Fundamental API functioning', function () {
 		expect(api2.isActive, 'the second api was not activated').to.be.true;
 	});
 
+	it('sends a typing indicator and spots it in another account', async done => {
+		// the first account will send the indicator, the second one should spot it
+		let indicatorWasSent = false;
+		let indicatorRecievedTyping = false;
+		let isDone = false;
+
+		const listener = (event: any) => {
+			if (!indicatorWasSent || event.type !== 'typ' || isDone) return;
+			const typing = event as Typ;
+			if (typing.from != api1.ctx.userID) return;
+
+			if (!indicatorRecievedTyping) {
+				// the first indication - should be "true"
+				expect(typing.isTyping).to.be.true;
+				indicatorRecievedTyping = true;
+			} else {
+				// the second indication (after the timeout) - should be "false"
+				expect(typing.isTyping).to.be.false;
+				done();
+				isDone = true;
+				emitter.removeListener('event', listener);
+			}
+		};
+		emitter.addListener('event', listener);
+
+		indicatorWasSent = true;
+		await api1.sendTypingIndicator(api2.ctx.userID, true, 3000);
+	});
+
 	it('sends a text message and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		const messageBody = sentence().slice(0, -1);
@@ -183,35 +212,6 @@ describe('Fundamental API functioning', function () {
 			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/video.mp4')) },
 			api2.ctx.userID
 		);
-	});
-
-	it('sends a typing indicator and spot it in another account', done => {
-		// the first account will send the indicator, the second one should spot it
-		let indicatorWasSent = false;
-		let indicatorRecievedTyping = false;
-		let isDone = false;
-
-		const listener = (event: any) => {
-			if (!indicatorWasSent || event.type !== 'typ' || isDone) return;
-			const typing = event as Typ;
-			if (typing.from != api1.ctx.userID) return;
-
-			if (!indicatorRecievedTyping) {
-				// the first indication - should be "true"
-				expect(typing.isTyping).to.be.true;
-				indicatorRecievedTyping = true;
-			} else {
-				// the second indication (after the timeout) - should be "false"
-				expect(typing.isTyping).to.be.false;
-				done();
-				isDone = true;
-				emitter.removeListener('event', listener);
-			}
-		};
-		emitter.addListener('event', listener);
-
-		indicatorWasSent = true;
-		api1.sendTypingIndicator(api2.ctx.userID, true, 4000);
 	});
 
 	it('should get user info of the second account', async () => {
