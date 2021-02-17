@@ -214,8 +214,14 @@ describe('Fundamental API functioning', function () {
 		api1.sendTypingIndicator(api2.ctx.userID, true, 4000);
 	});
 
+	it('should get user info of the second account', async () => {
+		const info = (await api1.getUserInfo([api2.ctx.userID])).get(api2.ctx.userID);
+		expect(info).to.exist;
+		expect(info?.isFriend).to.be.true;
+	});
+
 	it('should get thread history', async () => {
-		const history = await api1.getThreadHistory('100037075550522', 20, undefined);
+		const history = await api1.getThreadHistory(api2.ctx.userID, 20, undefined);
 		expect(history).to.exist;
 		if (history) {
 			expect(history).to.not.be.empty;
