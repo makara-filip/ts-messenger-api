@@ -16,7 +16,7 @@ describe('Fundamental API functioning', function () {
 		startTime = new Date();
 		console.log(`The tests have just started. Timestamp: ${startTime.getTime()}`);
 		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'justin.json')).toString());
-		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'testAccount3.json')).toString());
+		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'azihad.json')).toString());
 	});
 	it('should have the AppStates loaded', () => {
 		expect(appState1, '1st AppState not loaded').to.exist;
