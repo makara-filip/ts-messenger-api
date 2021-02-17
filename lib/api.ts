@@ -23,6 +23,7 @@ import * as utils from './utils';
 import * as formatters from './formatters';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
+import FormData from 'form-data';
 import { ThreadColor, ThreadID } from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 
@@ -1014,13 +1015,12 @@ export default class Api {
 			if (!utils.isReadableStream(att))
 				throw callback(new TypeError(`Attachment should be a readable stream and not ${utils.getType(att)}.`));
 
-			const form = {
-				upload_1024: att,
-				voice_clip: 'true'
-			};
+			const formData = new FormData();
+			formData.append('upload_1024', att);
+			// formData.append('voice_clip', 'true'); // is this necessary??
 
 			return this._defaultFuncs
-				.postFormData('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, form, {})
+				.postFormData2('https://upload.facebook.com/ajax/mercury/upload.php', this.ctx.jar, formData, {})
 				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 				.then((resData: any) => {
 					if (resData.error) throw resData;

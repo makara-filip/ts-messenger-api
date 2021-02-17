@@ -28,6 +28,7 @@
 	"dependencies": {
 		"cheerio": "^1.0.0-rc.5",
 		"events": "^3.2.0",
+		"form-data": "^4.0.0",
 		"got": "^11.8.1",
 		"mqtt": "^4.2.6",
 		"npmlog": "^4.1.2",

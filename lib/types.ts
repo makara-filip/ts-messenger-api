@@ -3,6 +3,7 @@ import { Cookie } from 'tough-cookie';
 import Jar from './jar';
 import mqtt from 'mqtt';
 import stream from 'stream';
+import FormData from 'form-data';
 import { UserID } from './types/users';
 
 export interface Credentials {
@@ -60,6 +61,7 @@ export interface Dfs {
 	get: (url: string, jar: Jar, qs?: any) => Promise<any>;
 	post: (url: string, jar: Jar, form: any) => Promise<any>;
 	postFormData: (url: string, jar: Jar, form: any, qs: any) => Promise<any>;
+	postFormData2: (url: string, jar: Jar, formData: FormData, qs: any) => Promise<any>;
 }
 
 export interface RequestForm {

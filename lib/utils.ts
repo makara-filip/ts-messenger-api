@@ -15,6 +15,7 @@ import Jar from './jar';
 import stream from 'stream';
 import log from 'npmlog';
 import { Cookie } from 'tough-cookie';
+import FormData from 'form-data';
 
 import got, { Response } from 'got';
 const gotInstance = got.extend({
@@ -169,6 +170,21 @@ export async function postFormData(
 	return await gotInstance.post(url, {
 		headers: headers,
 		form,
+		searchParams: qs,
+		cookieJar: jar._jar
+	});
+}
+
+export async function postFormData2(
+	url: string,
+	jar: Jar,
+	formData: FormData,
+	qs: Record<string, any>,
+	options: ApiOptions
+): Promise<Response<string>> {
+	return await gotInstance.post(url, {
+		headers: Object.assign(getHeaders(url, options), formData.getHeaders()),
+		body: formData,
 		searchParams: qs,
 		cookieJar: jar._jar
 	});
@@ -1020,10 +1036,15 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 		return await postFormData(url, jar, mergeWithDefaults(form), mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
+	async function postFormData2WithDefaults(url: string, jar: Jar, formData: FormData, qs: any) {
+		return await postFormData2(url, jar, formData, mergeWithDefaults(qs), ctx.globalOptions);
+	}
+
 	return {
 		get: getWithDefaults,
 		post: postWithDefaults,
-		postFormData: postFormDataWithDefault
+		postFormData: postFormDataWithDefault,
+		postFormData2: postFormData2WithDefaults
 	};
 }
 
