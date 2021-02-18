@@ -26,6 +26,7 @@ import websocket from 'websocket-stream';
 import FormData from 'form-data';
 import { ThreadColor, ThreadID } from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
+import { EventEmitter } from 'events';
 
 export default class Api {
 	ctx: ApiCtx;
@@ -142,13 +143,10 @@ export default class Api {
 			});
 	}
 
-	/**
-	 * @param callback Function that's called on every received message
-	 * @returns Function that when called, stops listening
-	 */
-	listen(callback: ListenCallback): () => void {
-		let globalCallback = callback;
-
+	/** Establish the websocket connection and enables message sending and receiving.
+	 * Possible event names are `error`, `message`, `typ`, `presence` and `close`.
+	 * @returns Event emitter emitting all incoming events. */
+	async listen(): Promise<EventEmitter> {
 		//Reset some stuff
 		this.ctx.lastSeqId = 0;
 		this.ctx.syncToken = undefined;
@@ -170,10 +168,10 @@ export default class Api {
 			})
 		};
 
-		this._defaultFuncs
+		return await this._defaultFuncs
 			.post('https://www.facebook.com/api/graphqlbatch/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(resData => {
+			.then(async resData => {
 				if (resData && resData.length > 0 && resData[resData.length - 1].error_results > 0) {
 					throw resData[0].o0.errors;
 				}
@@ -184,26 +182,15 @@ export default class Api {
 
 				if (resData[0].o0.data.viewer.message_threads.sync_sequence_id) {
 					this.ctx.lastSeqId = resData[0].o0.data.viewer.message_threads.sync_sequence_id;
-					this._listenMqtt(globalCallback);
+					return await this._listenMqtt();
 				}
-			})
-			.catch(err => {
-				log.error('getSeqId', err);
-				return callback(err);
+				throw new Error('Fatal XT6');
 			});
-
-		return () => {
-			// eslint-disable-next-line @typescript-eslint/no-empty-function
-			globalCallback = function () {};
-
-			if (this.ctx.mqttClient) {
-				this.ctx.mqttClient.end();
-				this.ctx.mqttClient = undefined;
-			}
-		};
 	}
 
-	private _listenMqtt(globalCallback: ListenCallback) {
+	private async _listenMqtt(): Promise<EventEmitter> {
+		const mqttEE = new EventEmitter();
+
 		const sessionID = Math.floor(Math.random() * 9007199254740991) + 1;
 		const username = {
 			u: this.ctx.userID,
@@ -252,39 +239,13 @@ export default class Api {
 
 		const mqttClient = this.ctx.mqttClient;
 
-		mqttClient.on('error', (err: any) => {
+		mqttClient.on('error', err => {
 			//TODO: This was modified
 			log.error('err', err.message);
 			mqttClient.end();
-			globalCallback('Connection refused: Server unavailable');
+			mqttEE.emit('error', err);
 		});
 
-		mqttClient.on('connect', () => {
-			let topic;
-			const queue: MqttQueue = {
-				sync_api_version: 10,
-				max_deltas_able_to_process: 1000,
-				delta_batch_size: 500,
-				encoding: 'JSON',
-				entity_fbid: this.ctx.userID
-			};
-
-			if (this.ctx.globalOptions.pageID) {
-				queue.entity_fbid = this.ctx.globalOptions.pageID;
-			}
-
-			if (this.ctx.syncToken) {
-				topic = '/messenger_sync_get_diffs';
-				queue.last_seq_id = this.ctx.lastSeqId;
-				queue.sync_token = this.ctx.syncToken;
-			} else {
-				topic = '/messenger_sync_create_queue';
-				queue.initial_titan_sequence_id = this.ctx.lastSeqId;
-				queue.device_params = null;
-			}
-
-			mqttClient.publish(topic, JSON.stringify(queue), { qos: 1, retain: false });
-		});
 		mqttClient.on('message', (topic, message) => {
 			//TODO: This was modified
 			const jsonMessage = JSON.parse(message.toString());
@@ -310,7 +271,13 @@ export default class Api {
 				//If it contains more than 1 delta
 				for (const i in jsonMessage.deltas) {
 					const delta = jsonMessage.deltas[i];
-					this._parseDelta(globalCallback, { delta: delta });
+					this._parseDelta(
+						(err, message) => {
+							if (err) return mqttEE.emit('error', err);
+							mqttEE.emit('message', message);
+						},
+						{ delta: delta }
+					);
 				}
 			} else if (topic === '/thread_typing' || topic === '/orca_typing_notifications') {
 				const typ: Typ = {
@@ -319,9 +286,7 @@ export default class Api {
 					from: jsonMessage.sender_fbid.toString(),
 					threadID: utils.formatID((jsonMessage.thread || jsonMessage.sender_fbid).toString())
 				};
-				(function () {
-					globalCallback(undefined, typ);
-				})();
+				mqttEE.emit('typ', typ);
 			} else if (topic === '/orca_presence') {
 				if (!this.ctx.globalOptions.updatePresence) {
 					for (const i in jsonMessage.list) {
@@ -335,17 +300,45 @@ export default class Api {
 							timestamp: data['l'] * 1000,
 							statuses: data['p']
 						};
-						(function () {
-							globalCallback(undefined, presence);
-						})();
+						mqttEE.emit('presence', presence);
 					}
 				}
 			}
 		});
-
 		mqttClient.on('close', () => {
-			// client.end();
-			// console.log('CLOSED');
+			this.ctx.mqttClient = undefined;
+			mqttEE.emit('close');
+		});
+
+		return await new Promise((resolve, reject) => {
+			mqttClient.once('connect', () => {
+				// TODO: think about this when reconnecting
+				let topic;
+				const queue: MqttQueue = {
+					sync_api_version: 10,
+					max_deltas_able_to_process: 1000,
+					delta_batch_size: 500,
+					encoding: 'JSON',
+					entity_fbid: this.ctx.userID
+				};
+
+				if (this.ctx.globalOptions.pageID) {
+					queue.entity_fbid = this.ctx.globalOptions.pageID;
+				}
+
+				if (this.ctx.syncToken) {
+					topic = '/messenger_sync_get_diffs';
+					queue.last_seq_id = this.ctx.lastSeqId;
+					queue.sync_token = this.ctx.syncToken;
+				} else {
+					topic = '/messenger_sync_create_queue';
+					queue.initial_titan_sequence_id = this.ctx.lastSeqId;
+					queue.device_params = null;
+				}
+
+				mqttClient.publish(topic, JSON.stringify(queue), { qos: 1, retain: false });
+				resolve(mqttEE);
+			});
 		});
 	}
 

@@ -48,27 +48,11 @@ describe('Fundamental API functioning', function () {
 	});
 
 	let emitter: EventEmitter; // this will emit events from the second api
-	it('invokes the listening method of test account 1', done => {
-		let isActive = false;
-		api1.listen((err, event) => {
-			if (err) throw err;
-			if (!isActive) {
-				isActive = true;
-				done();
-			}
-		});
+	it('invokes the listening method of test account 1', async () => {
+		await api1.listen();
 	});
-	it('invokes the listening method of test account 2', done => {
-		emitter = new EventEmitter();
-		let isActive = false;
-		api2.listen((err, event) => {
-			if (err) throw err;
-			if (!isActive) {
-				isActive = true;
-				done();
-			}
-			emitter.emit('event', event);
-		});
+	it('invokes the listening method of test account 2', async () => {
+		emitter = await api2.listen();
 	});
 
 	it('should have both the test accounts activated', () => {
@@ -76,7 +60,7 @@ describe('Fundamental API functioning', function () {
 		expect(api2.isActive, 'the second api was not activated').to.be.true;
 	});
 
-	it('sends a typing indicator and spots it in another account', async done => {
+	it('sends a typing indicator and spots it in another account', done => {
 		// the first account will send the indicator, the second one should spot it
 		let indicatorWasSent = false;
 		let indicatorRecievedTyping = false;
@@ -89,20 +73,20 @@ describe('Fundamental API functioning', function () {
 
 			if (!indicatorRecievedTyping) {
 				// the first indication - should be "true"
-				expect(typing.isTyping).to.be.true;
+				expect(typing.isTyping, 'first typing indicator was not true').to.be.true;
 				indicatorRecievedTyping = true;
 			} else {
 				// the second indication (after the timeout) - should be "false"
-				expect(typing.isTyping).to.be.false;
+				expect(typing.isTyping, 'second typing indicator was not false').to.be.false;
 				done();
 				isDone = true;
-				emitter.removeListener('event', listener);
+				emitter.removeListener('typ', listener);
 			}
 		};
-		emitter.addListener('event', listener);
+		emitter.addListener('typ', listener);
 
 		indicatorWasSent = true;
-		await api1.sendTypingIndicator(api2.ctx.userID, true, 3000);
+		api1.sendTypingIndicator(api2.ctx.userID, true, 3000);
 	});
 
 	it('sends a text message and recieves it in another account', done => {
@@ -120,10 +104,10 @@ describe('Fundamental API functioning', function () {
 				);
 				done();
 				messageWasRecieved = true;
-				emitter.removeListener('event', listener);
+				emitter.removeListener('message', listener);
 			}
 		};
-		emitter.addListener('event', listener);
+		emitter.addListener('message', listener);
 
 		// send the actual message
 		messageWasSent = true;
@@ -140,15 +124,12 @@ describe('Fundamental API functioning', function () {
 			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
 				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
 				expect((event as Message).attachments).to.be.not.empty;
-				// expect((event as Message).attachments, 'incoming message did not contain expected attachment').to.include(
-				// 	messageBody
-				// );
 				done();
 				messageWasRecieved = true;
-				emitter.removeListener('event', listener);
+				emitter.removeListener('message', listener);
 			}
 		};
-		emitter.addListener('event', listener);
+		emitter.addListener('message', listener);
 
 		// send the actual message
 		messageWasSent = true;
@@ -168,15 +149,12 @@ describe('Fundamental API functioning', function () {
 			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
 				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
 				expect((event as Message).attachments).to.be.not.empty;
-				// expect((event as Message).attachments, 'incoming message did not contain expected attachment').to.include(
-				// 	messageBody
-				// );
 				done();
 				messageWasRecieved = true;
-				emitter.removeListener('event', listener);
+				emitter.removeListener('message', listener);
 			}
 		};
-		emitter.addListener('event', listener);
+		emitter.addListener('message', listener);
 
 		// send the actual message
 		messageWasSent = true;
@@ -196,15 +174,12 @@ describe('Fundamental API functioning', function () {
 			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
 				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
 				expect((event as Message).attachments).to.be.not.empty;
-				// expect((event as Message).attachments, 'incoming message did not contain expected attachment').to.include(
-				// 	messageBody
-				// );
 				done();
 				messageWasRecieved = true;
-				emitter.removeListener('event', listener);
+				emitter.removeListener('message', listener);
 			}
 		};
-		emitter.addListener('event', listener);
+		emitter.addListener('message', listener);
 
 		// send the actual message
 		messageWasSent = true;
