@@ -6,7 +6,6 @@ import {
 	Event,
 	LogMessageType,
 	Message,
-	MessHeaders,
 	Read,
 	ReadReceipt,
 	RequestForm
@@ -28,10 +27,8 @@ export function getHeaders(url: string, options: ApiOptions) {
 	return {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Referer: 'https://www.facebook.com/',
-		// Host: url.replace('https://', '').split('/')[0],
 		Origin: 'https://www.facebook.com',
 		'User-Agent': options.userAgent
-		// Connection: 'keep-alive'
 	};
 }
 
@@ -62,29 +59,6 @@ export async function get(
 		}
 	}
 
-	// const op = {
-	// 	headers: getHeaders(url, options),
-	// 	timeout: 60000,
-	// 	qs: qs,
-	// 	url: url,
-	// 	method: 'GET',
-	// 	jar: jar as Jar,
-	// 	gzip: true
-	// };
-
-	// // TODO: This was modified
-	// // const response = await request(op);
-	// // // .then((res: any) => {
-	// // // 	return res[0];
-	// // // });
-	// // return response;
-	// const response = await new Promise((resolve, reject) => {
-	// 	request(url, op, (err, res, body) => {
-	// 		if (err) return reject(err);
-	// 		resolve(res);
-	// 	});
-	// });
-	// return response as Response;
 	const response = await gotInstance.get(url, {
 		headers: getHeaders(url, options),
 		cookieJar: jar?._jar
@@ -93,33 +67,6 @@ export async function get(
 }
 
 export async function post(url: string, jar: Jar, form: any, options: ApiOptions): Promise<Response<string>> {
-	// const op = {
-	// 	headers: getHeaders(url, options),
-	// 	timeout: 60000,
-	// 	url: url,
-	// 	method: 'POST',
-	// 	form: form,
-	// 	jar: jar,
-	// 	gzip: true
-	// };
-
-	// // TODO: This was modified
-	// // return await new Promise((resolve, reject) => {
-	// // 	request(url, op, (err, response, body) => {
-	// // 		if (err) return reject(err);
-	// // 		resolve(response);
-	// // 	});
-	// // });
-	// // const response = await request(url, op).then((res: any) => {
-	// // 	return res[0];
-	// // });
-	// const response = await new Promise((resolve, reject) => {
-	// 	request(url, op, (err, res, body) => {
-	// 		if (err) return reject(err);
-	// 		resolve(res);
-	// 	});
-	// });
-	// return response as Response;
 	const response = await gotInstance.post(url, {
 		headers: getHeaders(url, options),
 		form: form,
@@ -137,36 +84,6 @@ export async function postFormData(
 ): Promise<Response<string>> {
 	const headers = getHeaders(url, options);
 	headers['Content-Type'] = 'multipart/form-data';
-
-	// const op = {
-	// 	headers: headers,
-	// 	timeout: 60000,
-	// 	url: url,
-	// 	method: 'POST',
-	// 	formData: form,
-	// 	qs: qs,
-	// 	jar: jar,
-	// 	gzip: true
-	// };
-
-	// // TODO: This was modified
-	// // return await new Promise((resolve, reject) => {
-	// // 	request(url, op, (err, response, body) => {
-	// // 		if (err) return reject(err);
-	// // 		resolve(response);
-	// // 	});
-	// // })
-	// // const response = await request(op).then(function (res: any) {
-	// // 	return res[0];
-	// // });
-	// // return response;
-	// const response = await new Promise((resolve, reject) => {
-	// 	request(url, op, (err, res, body) => {
-	// 		if (err) return reject(err);
-	// 		resolve(res);
-	// 	});
-	// });
-	// return response as Response;
 	return await gotInstance.post(url, {
 		headers: headers,
 		form,

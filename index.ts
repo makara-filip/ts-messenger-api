@@ -93,10 +93,7 @@ async function loginHelper(email: string, password: string, globalOptions: ApiOp
 		mainPromise = utils
 			.get('https://m.facebook.com/', null, null, globalOptions)
 			.then(utils.saveCookies(jar))
-			.then(makeLogin(jar, email, password, globalOptions))
-			.then(
-				async () => await utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar))
-			);
+			.then(makeLogin(jar, email, password, globalOptions));
 	}
 
 	mainPromise = mainPromise
