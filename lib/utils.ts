@@ -92,7 +92,7 @@ export async function get(
 	return response;
 }
 
-export async function post(url: string, jar: Jar, form: RequestForm, options: ApiOptions): Promise<Response<string>> {
+export async function post(url: string, jar: Jar, form: any, options: ApiOptions): Promise<Response<string>> {
 	// const op = {
 	// 	headers: getHeaders(url, options),
 	// 	timeout: 60000,

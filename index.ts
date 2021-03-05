@@ -3,7 +3,6 @@ import * as utils from './lib/utils';
 import log, { LogLevels } from 'npmlog';
 import Jar from './lib/jar';
 import cheerio from 'cheerio';
-// import { Response } from 'request';
 import Api from './lib/api';
 import { Response } from 'got';
 
@@ -92,7 +91,7 @@ async function loginHelper(email: string, password: string, globalOptions: ApiOp
 		// Open the main page, then we login with the given credentials and finally
 		// load the main page again (it'll give us some IDs that we need)
 		mainPromise = utils
-			.get('https://www.facebook.com/', null, null, globalOptions)
+			.get('https://m.facebook.com/', null, null, globalOptions)
 			.then(utils.saveCookies(jar))
 			.then(makeLogin(jar, email, password, globalOptions))
 			.then(
@@ -207,25 +206,34 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 	return async (res: Response<string>) => {
 		const html: string = res.body;
 		const $ = cheerio.load(html);
-		let arr: { val: string; name?: string }[] = [];
 
-		// This will be empty, but just to be sure we leave it
-		$('#login_form input').map(function (i, v) {
-			arr.push({ val: $(v).val(), name: $(v).attr('name') });
-		});
+		const jazoest = $('input[name=jazoest]').attr('value');
+		const lsd = $('input[name=lsd]').attr('value');
+		const publicKeyDataString = utils.getFrom(html, 'pubKeyData:', '}') + '}';
+		const publicKeyData = {
+			publicKey: utils.getFrom(publicKeyDataString, 'publicKey:"', '"'),
+			keyId: utils.getFrom(publicKeyDataString, 'keyId:', '}')
+		};
+		// in newer versions of Facebook, encrypted password is being used
+		// (even Instagram uses the same technique to send password during login)
 
-		arr = arr.filter(v => v.val && v.val.length);
-
-		const form = utils.arrToForm(arr);
-		form.lsd = utils.getFrom(html, '["LSD",[],{"token":"', '"}');
-		form.lgndim = Buffer.from('{"w":1440,"h":900,"aw":1440,"ah":834,"c":24}').toString('base64');
-		form.email = email;
-		form.pass = password;
-		form.default_persistent = '0';
-		form.lgnrnd = utils.getFrom(html, 'name="lgnrnd" value="', '"');
-		form.locale = 'en_US';
-		form.timezone = '240';
-		form.lgnjs = ~~(Date.now() / 1000);
+		const currentTime = Math.floor(Date.now() / 1000).toString();
+		const form = {
+			jazoest,
+			lsd,
+			email,
+			login_source: 'comet_headerless_login',
+			next: '',
+			// eslint-disable-next-line @typescript-eslint/no-var-requires
+			encpass: `#PWD_BROWSER:5:${currentTime}:${await require('../lib/passwordHasher.js')(
+				publicKeyData,
+				currentTime,
+				password
+			)}`
+		};
+		const loginUrl = `https://www.facebook.com/login/?privacy_mutation_token=${Buffer.from(
+			`{"type":0,"creation_time":${currentTime},"callsite_id":381229079575946}`
+		).toString('base64')}`;
 
 		// Getting cookies from the HTML page... (kill me now plz)
 		// we used to get a bunch of cookies in the headers of the response of the
@@ -244,111 +252,111 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 		// ---------- Very Hacky Part Ends -----------------
 
 		log.info('login', 'Logging in...');
-		return await utils
-			.post('https://www.facebook.com/login.php?login_attempt=1&lwv=110', jar, form, loginOptions)
-			.then(async (res: Response<string>) => {
-				utils.saveCookies(jar)(res);
-				const headers = res.headers;
-				if (!headers.location) {
-					throw { error: 'Wrong username/password.' };
-				}
+		return await utils.post(loginUrl, jar, form, loginOptions).then(async (res: Response<string>) => {
+			utils.saveCookies(jar)(res);
+			const headers = res.headers;
+			// Facebook used to put "location" response header when the password was correct,
+			// now they do it differently - they change "window.location" in a script
+			if (!res.body.includes('window.location.replace')) throw { error: 'Wrong username/password.' };
+			const redirect = utils.getFrom(res.body, 'window.location.replace("', '")');
+			log.info('login', `Redirected to ${redirect}`);
 
-				// This means the account has login approvals turned on.
-				if (headers.location.indexOf('https://www.facebook.com/checkpoint/') > -1) {
-					log.info('login', 'You have login approvals turned on.');
-					const nextURL = 'https://www.facebook.com/checkpoint/?next=https%3A%2F%2Fwww.facebook.com%2Fhome.php';
+			// This means the account has login approvals turned on.
+			if (headers.location && headers.location.indexOf('https://www.facebook.com/checkpoint/') > -1) {
+				log.info('login', 'You have login approvals turned on.');
+				const nextURL = 'https://www.facebook.com/checkpoint/?next=https%3A%2F%2Fwww.facebook.com%2Fhome.php';
 
-					return await utils
-						.get(headers.location, jar, null, loginOptions)
-						.then(utils.saveCookies(jar))
-						.then(async (res: any) => {
-							const html = res.body;
-							// Make the form in advance which will contain the fb_dtsg and nh
-							const $ = cheerio.load(html);
-							let arr: any[] = [];
-							$('form input').map(function (i, v) {
-								arr.push({ val: $(v).val(), name: $(v).attr('name') });
-							});
-
-							arr = arr.filter(function (v) {
-								return v.val && v.val.length;
-							});
-
-							const form = utils.arrToForm(arr);
-							if (html.indexOf('checkpoint/?next') > -1) {
-								throw {
-									error: 'login-approval',
-									continue: async (code: string) => {
-										form.approvals_code = code;
-										form['submit[Continue]'] = 'Continue';
-										return await utils
-											.post(nextURL, jar, form, loginOptions)
-											.then(utils.saveCookies(jar))
-											.then(async () => {
-												// Use the same form (safe I hope)
-												form.name_action_selected = 'save_device';
-
-												return await utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
-											})
-											.then(async (res: any) => {
-												const headers = res.headers;
-												if (!headers.location && res.body.indexOf('Review Recent Login') > -1) {
-													throw { error: 'Something went wrong with login approvals.' };
-												}
-
-												const appState = utils.getAppState(jar);
-
-												// Simply call loginHelper because all it needs is the jar
-												// and will then complete the login process
-												return await loginHelper(email, password, loginOptions, appState);
-											})
-											.catch((err: any) => {
-												throw err;
-											});
-									}
-								};
-							} else {
-								if (!loginOptions.forceLogin) {
-									throw {
-										error:
-											"Couldn't login. Facebook might have blocked this account. Please login with a browser or enable the option 'forceLogin' and try again."
-									};
-								}
-								if (html.indexOf('Suspicious Login Attempt') > -1) {
-									form['submit[This was me]'] = 'This was me';
-								} else {
-									form['submit[This Is Okay]'] = 'This Is Okay';
-								}
-
-								return await utils
-									.post(nextURL, jar, form, loginOptions)
-									.then(utils.saveCookies(jar))
-									.then(async () => {
-										// Use the same form (safe I hope)
-										form.name_action_selected = 'save_device';
-
-										return await utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
-									})
-									.then(async (res: any) => {
-										const headers = res.headers;
-
-										if (!headers.location && res.body.indexOf('Review Recent Login') > -1) {
-											throw { error: 'Something went wrong with review recent login.' };
-										}
-
-										const appState = utils.getAppState(jar);
-
-										// Simply call loginHelper because all it needs is the jar
-										// and will then complete the login process
-										return await loginHelper(email, password, loginOptions, appState);
-									})
-									.catch((e: any) => {
-										throw e;
-									});
-							}
+				return await utils
+					.get(headers.location, jar, null, loginOptions)
+					.then(utils.saveCookies(jar))
+					.then(async (res: any) => {
+						const html = res.body;
+						// Make the form in advance which will contain the fb_dtsg and nh
+						const $ = cheerio.load(html);
+						let arr: any[] = [];
+						$('form input').map(function (i, v) {
+							arr.push({ val: $(v).val(), name: $(v).attr('name') });
 						});
-				}
-				return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar));
-			});
+
+						arr = arr.filter(function (v) {
+							return v.val && v.val.length;
+						});
+
+						const form = utils.arrToForm(arr);
+						if (html.indexOf('checkpoint/?next') > -1) {
+							throw {
+								error: 'login-approval',
+								continue: async (code: string) => {
+									form.approvals_code = code;
+									form['submit[Continue]'] = 'Continue';
+									return await utils
+										.post(nextURL, jar, form, loginOptions)
+										.then(utils.saveCookies(jar))
+										.then(async () => {
+											// Use the same form (safe I hope)
+											form.name_action_selected = 'save_device';
+
+											return await utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
+										})
+										.then(async (res: any) => {
+											const headers = res.headers;
+											if (!headers.location && res.body.indexOf('Review Recent Login') > -1) {
+												throw { error: 'Something went wrong with login approvals.' };
+											}
+
+											const appState = utils.getAppState(jar);
+
+											// Simply call loginHelper because all it needs is the jar
+											// and will then complete the login process
+											return await loginHelper(email, password, loginOptions, appState);
+										})
+										.catch((err: any) => {
+											throw err;
+										});
+								}
+							};
+						} else {
+							if (!loginOptions.forceLogin) {
+								throw {
+									error:
+										"Couldn't login. Facebook might have blocked this account. Please login with a browser or enable the option 'forceLogin' and try again."
+								};
+							}
+							if (html.indexOf('Suspicious Login Attempt') > -1) {
+								form['submit[This was me]'] = 'This was me';
+							} else {
+								form['submit[This Is Okay]'] = 'This Is Okay';
+							}
+
+							return await utils
+								.post(nextURL, jar, form, loginOptions)
+								.then(utils.saveCookies(jar))
+								.then(async () => {
+									// Use the same form (safe I hope)
+									form.name_action_selected = 'save_device';
+
+									return await utils.post(nextURL, jar, form, loginOptions).then(utils.saveCookies(jar));
+								})
+								.then(async (res: any) => {
+									const headers = res.headers;
+
+									if (!headers.location && res.body.indexOf('Review Recent Login') > -1) {
+										throw { error: 'Something went wrong with review recent login.' };
+									}
+
+									const appState = utils.getAppState(jar);
+
+									// Simply call loginHelper because all it needs is the jar
+									// and will then complete the login process
+									return await loginHelper(email, password, loginOptions, appState);
+								})
+								.catch((e: any) => {
+									throw e;
+								});
+						}
+					});
+			}
+			return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar));
+		});
 	};
 }
