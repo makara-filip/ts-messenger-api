@@ -6,6 +6,7 @@ import {
 	Event,
 	LogMessageType,
 	Message,
+	PrimitiveObject,
 	Read,
 	ReadReceipt,
 	RequestForm
@@ -23,12 +24,14 @@ const gotInstance = got.extend({
 	http2: true
 });
 
-export function getHeaders(url: string, options: ApiOptions) {
+function getHeaders(options: ApiOptions): Record<string, string> {
 	return {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Referer: 'https://www.facebook.com/',
 		Origin: 'https://www.facebook.com',
-		'User-Agent': options.userAgent
+		'User-Agent':
+			options.userAgent ||
+			'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
 	};
 }
 
@@ -42,7 +45,7 @@ export function isReadableStream(obj: unknown): boolean {
 }
 
 /**
- * @param qs This is ussually null
+ * @param qs This is usually null
  */
 export async function get(
 	url: string,
@@ -59,16 +62,22 @@ export async function get(
 		}
 	}
 
+	//TODO: Use the `qs` param in this request
 	const response = await gotInstance.get(url, {
-		headers: getHeaders(url, options),
+		headers: getHeaders(options),
 		cookieJar: jar?._jar
 	});
 	return response;
 }
 
-export async function post(url: string, jar: Jar, form: any, options: ApiOptions): Promise<Response<string>> {
+export async function post(
+	url: string,
+	jar: Jar,
+	form: Record<string, unknown>,
+	options: ApiOptions
+): Promise<Response<string>> {
 	const response = await gotInstance.post(url, {
-		headers: getHeaders(url, options),
+		headers: getHeaders(options),
 		form: form,
 		cookieJar: jar._jar
 	});
@@ -79,10 +88,10 @@ export async function postFormData(
 	url: string,
 	jar: Jar,
 	form: RequestForm,
-	qs: Record<string, any>,
+	qs: PrimitiveObject,
 	options: ApiOptions
 ): Promise<Response<string>> {
-	const headers = getHeaders(url, options);
+	const headers = getHeaders(options);
 	headers['Content-Type'] = 'multipart/form-data';
 	return await gotInstance.post(url, {
 		headers: headers,
@@ -96,11 +105,11 @@ export async function postFormData2(
 	url: string,
 	jar: Jar,
 	formData: FormData,
-	qs: Record<string, any>,
+	qs: PrimitiveObject,
 	options: ApiOptions
 ): Promise<Response<string>> {
 	return await gotInstance.post(url, {
-		headers: Object.assign(getHeaders(url, options), formData.getHeaders()),
+		headers: Object.assign(getHeaders(options), formData.getHeaders()),
 		body: formData,
 		searchParams: qs,
 		cookieJar: jar._jar
@@ -941,19 +950,19 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 		return newObj;
 	}
 
-	async function postWithDefaults(url: string, jar: Jar, form: RequestForm) {
+	async function postWithDefaults(url: string, jar: Jar, form: Record<string, unknown>) {
 		return await post(url, jar, mergeWithDefaults(form), ctx.globalOptions);
 	}
 
-	async function getWithDefaults(url: string, jar: Jar, qs?: any) {
+	async function getWithDefaults(url: string, jar: Jar, qs?: PrimitiveObject) {
 		return await get(url, jar, mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
-	async function postFormDataWithDefault(url: string, jar: Jar, form: RequestForm, qs: any) {
+	async function postFormDataWithDefault(url: string, jar: Jar, form: Record<string, unknown>, qs: PrimitiveObject) {
 		return await postFormData(url, jar, mergeWithDefaults(form), mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
-	async function postFormData2WithDefaults(url: string, jar: Jar, formData: FormData, qs: any) {
+	async function postFormData2WithDefaults(url: string, jar: Jar, formData: FormData, qs: PrimitiveObject) {
 		return await postFormData2(url, jar, formData, mergeWithDefaults(qs), ctx.globalOptions);
 	}
 
@@ -993,11 +1002,11 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 			if (data.request.options.headers['Content-Type']) {
 				if ((data.request.options.headers['Content-Type'] as string).split(';')[0] === 'multipart/form-data') {
 					return new Promise(resolve => setTimeout(resolve, retryTime))
-						.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.options.form, {}))
+						.then(async () => await defaultFuncs.postFormData(url, ctx.jar, data.request.options.form || {}, {}))
 						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
 				} else {
 					return new Promise(resolve => setTimeout(resolve, retryTime))
-						.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.options.form))
+						.then(async () => await defaultFuncs.post(url, ctx.jar, data.request.options.form || {}))
 						.then(parseAndCheckLogin(ctx, defaultFuncs, retryCount));
 				}
 			}

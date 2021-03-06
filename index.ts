@@ -96,48 +96,37 @@ async function loginHelper(email: string, password: string, globalOptions: ApiOp
 			.then(makeLogin(jar, email, password, globalOptions));
 	}
 
-	mainPromise = mainPromise
-		.then(async (res: Response<string>) => {
-			// Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
-			const reg = /<meta http-equiv="refresh" content="0;url=([^"]+)[^>]+>/;
-			const redirect = reg.exec(res.body);
-			if (redirect && redirect[1]) {
-				return await utils.get(redirect[1], jar, null, globalOptions).then(utils.saveCookies(jar));
-			}
-			return res;
-		})
-		.then((res: Response<string>) => {
-			// Define global state
-			const html = res.body;
-			const stuff = buildAPI(globalOptions, html, jar);
-			ctx = stuff.ctx;
-			defaultFuncs = stuff.defaultFuncs; // TODO: remove the defaultFuncs, because they are already in the api
-			api = stuff.api;
-			return res;
-		})
-		.then(async () => {
-			const form = {
-				reason: 6
-			};
-			log.info('login', 'Request to reconnect');
-			return await defaultFuncs
-				.get('https://www.facebook.com/ajax/presence/reconnect.php', ctx.jar, form)
-				.then(utils.saveCookies(ctx.jar));
-		})
-		.then(() => {
-			const presence = utils.generatePresence(ctx.userID);
-			ctx.jar.setCookie('presence=' + presence + '; path=/; domain=.facebook.com; secure', 'https://www.facebook.com');
-			ctx.jar.setCookie(
-				'presence=' + presence + '; path=/; domain=.messenger.com; secure',
-				'https://www.messenger.com'
-			);
-			ctx.jar.setCookie('locale=en_US; path=/; domain=.facebook.com; secure', 'https://www.facebook.com');
-			ctx.jar.setCookie('locale=en_US; path=/; domain=.messenger.com; secure', 'https://www.messenger.com');
-			ctx.jar.setCookie(
-				'a11y=' + utils.generateAccessiblityCookie() + '; path=/; domain=.facebook.com; secure',
-				'https://www.facebook.com'
-			);
-		});
+	mainPromise = mainPromise.then(async (res: Response<string>) => {
+		// Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
+		const reg = /<meta http-equiv="refresh" content="0;url=([^"]+)[^>]+>/;
+		const redirect = reg.exec(res.body);
+		if (redirect && redirect[1])
+			res = await utils.get(redirect[1], jar, null, globalOptions).then(utils.saveCookies(jar));
+
+		// Define global state
+		const stuff = buildAPI(globalOptions, res.body, jar);
+		ctx = stuff.ctx;
+		defaultFuncs = stuff.defaultFuncs; // TODO: remove the defaultFuncs, because they are already in the api
+		api = stuff.api;
+
+		const form = {
+			reason: 6
+		};
+		log.info('login', 'Request to reconnect');
+		await defaultFuncs
+			.get('https://www.facebook.com/ajax/presence/reconnect.php', ctx.jar, form)
+			.then(utils.saveCookies(ctx.jar));
+
+		const presence = utils.generatePresence(ctx.userID);
+		ctx.jar.setCookie('presence=' + presence + '; path=/; domain=.facebook.com; secure', 'https://www.facebook.com');
+		ctx.jar.setCookie('presence=' + presence + '; path=/; domain=.messenger.com; secure', 'https://www.messenger.com');
+		ctx.jar.setCookie('locale=en_US; path=/; domain=.facebook.com; secure', 'https://www.facebook.com');
+		ctx.jar.setCookie('locale=en_US; path=/; domain=.messenger.com; secure', 'https://www.messenger.com');
+		ctx.jar.setCookie(
+			'a11y=' + utils.generateAccessiblityCookie() + '; path=/; domain=.facebook.com; secure',
+			'https://www.facebook.com'
+		);
+	});
 
 	// given a pageID we log in as a page
 	if (globalOptions.pageID) {
@@ -150,7 +139,7 @@ async function loginHelper(email: string, password: string, globalOptions: ApiOp
 					globalOptions
 				);
 			})
-			.then(async (resData: any) => {
+			.then(async (resData: Response<string>) => {
 				let url = utils
 					.getFrom(resData.body, 'window.location.replace("https:\\/\\/www.facebook.com\\', '");')
 					.split('\\')

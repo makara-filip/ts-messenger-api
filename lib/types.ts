@@ -5,6 +5,9 @@ import mqtt from 'mqtt';
 import stream from 'stream';
 import FormData from 'form-data';
 import { UserID } from './types/users';
+import { Response } from 'got';
+
+export type PrimitiveObject = Record<string, string | number | boolean | null | undefined>;
 
 export interface Credentials {
 	email: string;
@@ -58,24 +61,20 @@ export interface ApiCtx {
 
 /** Default functions */
 export interface Dfs {
-	get: (url: string, jar: Jar, qs?: any) => Promise<any>;
-	post: (url: string, jar: Jar, form: any) => Promise<any>;
-	postFormData: (url: string, jar: Jar, form: any, qs: any) => Promise<any>;
-	postFormData2: (url: string, jar: Jar, formData: FormData, qs: any) => Promise<any>;
+	get: (url: string, jar: Jar, qs?: PrimitiveObject) => Promise<Response<string>>;
+	post: (url: string, jar: Jar, form: Record<string, unknown>) => Promise<Response<string>>;
+	postFormData: (
+		url: string,
+		jar: Jar,
+		form: Record<string, unknown>,
+		qs: PrimitiveObject
+	) => Promise<Response<string>>;
+	postFormData2: (url: string, jar: Jar, formData: FormData, qs: PrimitiveObject) => Promise<Response<string>>;
 }
 
 export interface RequestForm {
 	client: string;
 	[index: string]: any;
-}
-
-export interface MessHeaders {
-	'Content-Type'?: string;
-	Referer?: string;
-	Host?: string;
-	Origin?: string;
-	'User-Agent'?: string;
-	Connection?: string;
 }
 
 /** Message can only be a regular message (`body` field set) and optionally one of a `sticker`, `attachment` or `url` */
