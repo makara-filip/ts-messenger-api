@@ -1,2 +1,3 @@
-lib/
-index.ts
+extracts/
+test/testAppStates/
+examples/
