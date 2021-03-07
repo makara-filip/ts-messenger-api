@@ -722,21 +722,21 @@ export default class Api {
 	}
 
 	private _markDelivery(threadID: ThreadID, messageID: MessageID) {
-		if (threadID && messageID) {
-			this.markAsDelivered(threadID, messageID, err => {
-				if (err) {
-					log.error('FIX THIS', err);
-				} else {
-					if (this.ctx.globalOptions.autoMarkRead) {
-						this.markAsRead(threadID, undefined, err => {
-							if (err) {
-								log.error('FIX THIS', err);
-							}
-						});
-					}
-				}
-			});
-		}
+		// if (threadID && messageID) {
+		// 	this.markAsDelivered(threadID, messageID, err => {
+		// 		if (err) {
+		// 			log.error('FIX THIS', err);
+		// 		} else {
+		// 			if (this.ctx.globalOptions.autoMarkRead) {
+		// 				this.markAsRead(threadID, undefined, err => {
+		// 					if (err) {
+		// 						log.error('FIX THIS', err);
+		// 					}
+		// 				});
+		// 			}
+		// 		}
+		// 	});
+		// }
 	}
 
 	resolvePhotoUrl(photoID: string, callback: (err?: Error, url?: string) => void): void {
@@ -796,37 +796,22 @@ export default class Api {
 			});
 	}
 
-	// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	markAsRead(threadID: ThreadID, read = true, callback = (err?: any) => {}): void {
-		const form: { [index: string]: string | boolean | number } = {};
+	async markAsRead(threadId: ThreadID): Promise<void> {
+		// similar code structure as in "sendMessage" method...
+		this.checkForActiveState();
 
-		if (typeof this.ctx.globalOptions.pageID !== 'undefined') {
-			form['source'] = 'PagesManagerMessagesInterface';
-			form['request_user_id'] = this.ctx.globalOptions.pageID;
-		}
-
-		form['ids[' + threadID + ']'] = read;
-		form['watermarkTimestamp'] = new Date().getTime();
-		form['shouldSendReadReceipt'] = true;
-		form['commerce_last_message_type'] = 'non_ad';
-		form['titanOriginatedThreadId'] = utils.generateThreadingID(this.ctx.clientID);
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/change_read_status.php', this.ctx.jar, form)
-			.then(utils.saveCookies(this.ctx.jar))
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData: any) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('markAsRead', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '21',
+			payload: JSON.stringify({
+				thread_id: threadId,
+				last_read_watermark_ts: Date.now()
+			}),
+			queue_name: threadId.toString(),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
 	}
 
 	markAsReadAll(callback: (err?: any) => void): void {
