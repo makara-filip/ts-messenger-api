@@ -864,89 +864,54 @@ export default class Api {
 	async sendMessage(msg: OutgoingMessage, threadID: ThreadID): Promise<void> {
 		this.checkForActiveState();
 
-		const wsContent = this.createWebsocketContent();
-		this.websocketTaskNumber++;
+		// the core websocket content object
+		// its properties will vary depending on message type
+		const rawTaskPayload = {
+			thread_id: threadID,
+			otid: utils.generateOfflineThreadingID(),
+			source: 0
+			// other properties will be added
+		} as Record<string, unknown>;
 
 		if (msg.sticker) {
-			wsContent.payload.tasks.push({
-				label: '46',
-				payload: JSON.stringify({
-					thread_id: threadID,
-					otid: utils.generateOfflineThreadingID(),
-					source: 0,
-					send_type: OutgoingMessageSendType.Sticker,
-					sticker_id: msg.sticker
-				}),
-				queue_name: threadID.toString(),
-				task_id: this.websocketTaskNumber,
-				failure_count: null
-			});
+			rawTaskPayload.send_type = OutgoingMessageSendType.Sticker;
+			rawTaskPayload.sticker_id = msg.sticker;
+		}
+		if (msg.body) {
+			rawTaskPayload.send_type = OutgoingMessageSendType.PlainText;
+			rawTaskPayload.text = msg.body;
+
+			if (msg.mentions)
+				rawTaskPayload.mention_data = {
+					mention_ids: msg.mentions.map(m => m.id).join(),
+					mention_offsets: utils
+						.mentionsGetOffsetRecursive(
+							msg.body,
+							msg.mentions.map(m => m.name)
+						)
+						.join(),
+					mention_lengths: msg.mentions.map(m => m.name.length).join(),
+					mention_types: msg.mentions.map(() => 'p').join()
+				};
 		}
 		if (msg.attachment) {
 			if (!(msg.attachment instanceof Array)) msg.attachment = [msg.attachment];
-
+			// upload files and get attachment IDs
 			const files = await this.uploadAttachment(msg.attachment);
-			files.forEach(file => {
-				// for each attachment id, create a new task (as Facebook does)
-				wsContent.payload.tasks.push({
-					label: '46',
-					payload: JSON.stringify({
-						thread_id: threadID,
-						otid: utils.generateOfflineThreadingID(),
-						source: 0,
-						send_type: OutgoingMessageSendType.Attachment,
-						text: msg.body ? msg.body : null,
-						attachment_fbids: [getAttachmentID(file)] // here is the actual attachment ID
-					}),
-					queue_name: threadID.toString(),
-					task_id: this.websocketTaskNumber++, // increment the task number after each task
-					failure_count: null
-				});
-			});
-		}
-		// handle this only when there are no other properties, because they are handled in other statements
-		if (msg.body && !msg.attachment && !msg.mentions) {
-			wsContent.payload.tasks.push({
-				label: '46',
-				payload: JSON.stringify({
-					thread_id: threadID,
-					otid: utils.generateOfflineThreadingID(),
-					source: 0,
-					send_type: OutgoingMessageSendType.PlainText,
-					text: msg.body ? msg.body : null
-				}),
-				queue_name: threadID.toString(),
-				task_id: this.websocketTaskNumber,
-				failure_count: null
-			});
-		}
-		if (msg.mentions && msg.body) {
-			wsContent.payload.tasks.push({
-				label: '46',
-				payload: JSON.stringify({
-					thread_id: threadID,
-					otid: utils.generateOfflineThreadingID(),
-					source: 0,
-					send_type: OutgoingMessageSendType.PlainText,
-					text: msg.body,
-					mention_data: {
-						mention_ids: msg.mentions.map(m => m.id).join(),
-						mention_offsets: utils
-							.mentionsGetOffsetRecursive(
-								msg.body,
-								msg.mentions.map(m => m.name)
-							)
-							.join(),
-						mention_lengths: msg.mentions.map(m => m.name.length).join(),
-						mention_types: msg.mentions.map(() => 'p').join()
-					}
-				}),
-				queue_name: threadID.toString(),
-				task_id: this.websocketTaskNumber,
-				failure_count: null
-			});
+
+			rawTaskPayload.send_type = OutgoingMessageSendType.Attachment;
+			rawTaskPayload.text = msg.body ? msg.body : null;
+			rawTaskPayload.attachment_fbids = files.map(file => getAttachmentID(file)); // here is the actual attachment ID
 		}
 
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '46',
+			payload: JSON.stringify(rawTaskPayload), // the main info is this
+			queue_name: threadID.toString(),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
 		await this.sendWebsocketContent(wsContent);
 	}
 
