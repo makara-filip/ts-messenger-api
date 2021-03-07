@@ -3,7 +3,7 @@ import login from '../dist/index';
 import Api from '../dist/lib/api';
 import fs from 'fs';
 import path from 'path';
-import { AppState, Message, Typ } from '../dist/lib/types';
+import { AppState, Message, MessageBase, MessageID, MessageReply, Typ } from '../dist/lib/types';
 import { EventEmitter } from 'events';
 import { sentence } from 'txtgen';
 
@@ -66,7 +66,7 @@ describe('Fundamental API functioning', function () {
 		let indicatorRecievedTyping = false;
 		let isDone = false;
 
-		const listener = (event: any) => {
+		const listener = (event: MessageBase) => {
 			if (!indicatorWasSent || event.type !== 'typ' || isDone) return;
 			const typing = event as Typ;
 			if (typing.from != api1.ctx.userID) return;
@@ -89,6 +89,7 @@ describe('Fundamental API functioning', function () {
 		api1.sendTypingIndicator(api2.ctx.userID, true, 3000);
 	});
 
+	let messageId: MessageID;
 	it('sends a text message and recieves it in another account', done => {
 		// the first account will send a message, the second one should recieve it
 		const messageBody = sentence().slice(0, -1);
@@ -96,13 +97,14 @@ describe('Fundamental API functioning', function () {
 		let messageWasRecieved = false;
 
 		// setup the event listener
-		const listener = (event: any) => {
+		const listener = (event: MessageBase) => {
 			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
 				expect((event as Message).body, 'incoming text message did not contain "body" property').to.exist;
 				expect((event as Message).body, 'incoming text message did not contain expected content').to.include(
 					messageBody
 				);
 				done();
+				messageId = (event as Message).messageID; // save the message ID for later use
 				messageWasRecieved = true;
 				emitter.removeListener('message', listener);
 			}
@@ -112,6 +114,30 @@ describe('Fundamental API functioning', function () {
 		// send the actual message
 		messageWasSent = true;
 		api1.sendMessage({ body: messageBody }, api2.ctx.userID);
+	});
+	it('sends a reply to last message and recieves it in another account', done => {
+		// the first account will send a reply, the second one should recieve it
+		const messageBody = sentence().slice(0, -1);
+		let messageWasSent = false;
+		let messageWasRecieved = false;
+
+		// setup the event listener
+		const listener = (event: MessageBase) => {
+			if (messageWasSent && event.type === 'message_reply' && !messageWasRecieved) {
+				expect((event as MessageReply).body, 'incoming text message did not contain "body" property').to.exist;
+				expect((event as MessageReply).body, 'incoming text message did not contain expected content').to.include(
+					messageBody
+				);
+				done();
+				messageWasRecieved = true;
+				emitter.removeListener('message', listener);
+			}
+		};
+		emitter.addListener('message', listener);
+
+		// send the actual reply
+		messageWasSent = true;
+		api1.sendMessage({ body: messageBody, replyToMessage: messageId }, api2.ctx.userID);
 	});
 
 	it('sends an image attachment and recieves it in another account', done => {

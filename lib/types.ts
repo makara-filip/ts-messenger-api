@@ -109,7 +109,7 @@ export enum OutgoingMessageSendType {
 	ForwardMessage = 5
 }
 
-interface MessageBase {
+export interface MessageBase {
 	type:
 		| 'message'
 		| 'event'
