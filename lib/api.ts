@@ -903,6 +903,12 @@ export default class Api {
 			rawTaskPayload.text = msg.body ? msg.body : null;
 			rawTaskPayload.attachment_fbids = files.map(file => getAttachmentID(file)); // here is the actual attachment ID
 		}
+		if (msg.replyToMessage) {
+			rawTaskPayload.reply_metadata = {
+				reply_source_id: msg.replyToMessage,
+				reply_source_type: 1 // I've seen here only "1" and nothing else
+			};
+		}
 
 		const wsContent = this.createWebsocketContent();
 		wsContent.payload.tasks.push({
