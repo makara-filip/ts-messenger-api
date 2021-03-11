@@ -1129,58 +1129,18 @@ export default class Api {
 		await this.removeUserFromGroup(this.ctx.userID, threadId);
 	}
 
-	changeAdminStatus(
-		threadID: ThreadID,
-		adminIDs: Array<UserID>,
-		adminStatus: boolean,
-		callback: (err?: any) => void
-	): void {
-		if (utils.getType(adminIDs) !== 'Array') {
-			throw { error: 'changeAdminStatus: adminIDs must be an array or string' };
-		}
+	async changeAdminStatus(threadId: ThreadID, userId: UserID, isAdmin: boolean): Promise<void> {
+		this.checkForActiveState();
 
-		if (utils.getType(adminStatus) !== 'Boolean') {
-			throw { error: 'changeAdminStatus: adminStatus must be a string' };
-		}
-
-		if (!callback) {
-			callback = () => {};
-		}
-
-		if (utils.getType(callback) !== 'Function' && utils.getType(callback) !== 'AsyncFunction') {
-			throw { error: 'changeAdminStatus: callback is not a function' };
-		}
-
-		const form: any = {
-			thread_fbid: threadID
-		};
-
-		let i = 0;
-		for (const u of adminIDs) {
-			form[`admin_ids[${i++}]`] = u;
-		}
-		form['add'] = adminStatus;
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/save_admins/?dpr=1', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error) {
-					switch (resData.error) {
-						case 1976004:
-							throw { error: 'Cannot alter admin status: you are not an admin.', rawResponse: resData };
-						case 1357031:
-							throw { error: 'Cannot alter admin status: this thread is not a group chat.', rawResponse: resData };
-						default:
-							throw { error: 'Cannot alter admin status: unknown error.', rawResponse: resData };
-					}
-				}
-				callback();
-			})
-			.catch(err => {
-				log.error('changeAdminStatus', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '25',
+			payload: JSON.stringify({ thread_key: threadId, contact_id: userId, is_admin: isAdmin }),
+			queue_name: 'admin_status',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
 	}
 
 	changeArchivedStatus(threadOrThreads: ThreadID | ThreadID[], archive: boolean, callback: (err?: any) => void): void {
