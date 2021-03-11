@@ -1096,94 +1096,37 @@ export default class Api {
 			});
 	}
 
-	addUserToGroup(userID: UserID | UserID[], threadID: ThreadID, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
+	async addUserToGroup(userIds: UserID | UserID[], threadId: ThreadID): Promise<void> {
+		this.checkForActiveState();
+		if (!(userIds instanceof Array)) userIds = [userIds];
 
-		if (!(userID instanceof Array)) {
-			userID = [userID];
-		}
-
-		const messageAndOTID = utils.generateOfflineThreadingID();
-		const form: RequestForm = {
-			client: 'mercury',
-			action_type: 'ma-type:log-message',
-			author: 'fbid:' + this.ctx.userID,
-			thread_id: '',
-			timestamp: Date.now(),
-			timestamp_absolute: 'Today',
-			timestamp_relative: utils.generateTimestampRelative(),
-			timestamp_time_passed: '0',
-			is_unread: false,
-			is_cleared: false,
-			is_forward: false,
-			is_filtered_content: false,
-			is_filtered_content_bh: false,
-			is_filtered_content_account: false,
-			is_spoof_warning: false,
-			source: 'source:chat:web',
-			'source_tags[0]': 'source:chat',
-			log_message_type: 'log:subscribe',
-			status: '0',
-			offline_threading_id: messageAndOTID,
-			message_id: messageAndOTID,
-			threading_id: utils.generateThreadingID(this.ctx.clientID),
-			manual_retry_cnt: '0',
-			thread_fbid: threadID
-		};
-
-		for (let i = 0; i < userID.length; i++) {
-			if (utils.getType(userID[i]) !== 'Number' && utils.getType(userID[i]) !== 'String') {
-				throw {
-					error: 'Elements of userID should be of type Number or String and not ' + utils.getType(userID[i]) + '.'
-				};
-			}
-
-			form['log_message_data[added_participants][' + i + ']'] = 'fbid:' + userID[i];
-		}
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/send/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (!resData) {
-					throw { error: 'Add to group failed.' };
-				}
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('addUserToGroup', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '23',
+			payload: JSON.stringify({ thread_key: threadId, contact_ids: userIds }),
+			queue_name: threadId.toString(),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	removeUserFromGroup(userID: UserID, threadID: ThreadID, callback: (err?: any) => void): void {
-		const form = {
-			uid: userID,
-			tid: threadID
-		};
+	async removeUserFromGroup(userId: UserID, threadId: ThreadID): Promise<void> {
+		this.checkForActiveState();
 
-		this._defaultFuncs
-			.post('https://www.facebook.com/chat/remove_participants', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (!resData) {
-					throw { error: 'Remove from group failed.' };
-				}
-				if (resData.error) {
-					throw resData;
-				}
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('removeUserFromGroup', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '140',
+			payload: JSON.stringify({ thread_id: threadId, contact_id: userId }),
+			queue_name: 'remove_participant_v2',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
+	async leaveGroup(threadId: ThreadID): Promise<void> {
+		await this.removeUserFromGroup(this.ctx.userID, threadId);
 	}
 
 	changeAdminStatus(
