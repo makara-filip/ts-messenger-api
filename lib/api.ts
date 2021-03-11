@@ -915,7 +915,7 @@ export default class Api {
 			label: '33',
 			payload: JSON.stringify({ message_id: messageID }),
 			queue_name: 'unsend_message',
-			task_id: this.websocketTaskNumber,
+			task_id: this.websocketTaskNumber++,
 			failure_count: null
 		});
 		await this.sendWebsocketContent(wsContent);
@@ -936,7 +936,7 @@ export default class Api {
 				forwarded_msg_id: messageID
 			}),
 			queue_name: threadID.toString(),
-			task_id: this.websocketTaskNumber,
+			task_id: this.websocketTaskNumber++,
 			failure_count: null
 		});
 		await this.sendWebsocketContent(wsContent);
