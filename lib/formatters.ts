@@ -528,3 +528,108 @@ function formatExtensibleAttachment(attachment: any) {
 		return { error: "Don't know what to do with extensible_attachment." };
 	}
 }
+
+export function formatThreadGraphQLResponse(data: any) {
+	const messageThread = data.o0.data.message_thread;
+	const threadID = messageThread.thread_key.thread_fbid
+		? messageThread.thread_key.thread_fbid
+		: messageThread.thread_key.other_user_id;
+
+	// Remove me
+	const lastM = messageThread.last_message;
+	const snippetID =
+		lastM &&
+		lastM.nodes &&
+		lastM.nodes[0] &&
+		lastM.nodes[0].message_sender &&
+		lastM.nodes[0].message_sender.messaging_actor
+			? lastM.nodes[0].message_sender.messaging_actor.id
+			: null;
+	const snippetText = lastM && lastM.nodes && lastM.nodes[0] ? lastM.nodes[0].snippet : null;
+	const lastR = messageThread.last_read_receipt;
+	const lastReadTimestamp =
+		lastR && lastR.nodes && lastR.nodes[0] && lastR.nodes[0].timestamp_precise
+			? lastR.nodes[0].timestamp_precise
+			: null;
+
+	return {
+		threadID: threadID,
+		threadName: messageThread.name,
+		participantIDs: messageThread.all_participants.nodes.map((d: any) => d.messaging_actor.id),
+		unreadCount: messageThread.unread_count,
+		messageCount: messageThread.messages_count,
+		timestamp: messageThread.updated_time_precise,
+		muteUntil: messageThread.mute_until,
+		isGroup: messageThread.thread_type == 'GROUP',
+		isSubscribed: messageThread.is_viewer_subscribed,
+		isArchived: messageThread.has_viewer_archived,
+		folder: messageThread.folder,
+		cannotReplyReason: messageThread.cannot_reply_reason,
+		eventReminders: messageThread.event_reminders
+			? messageThread.event_reminders.nodes.map(formatEventReminders)
+			: null,
+		emoji: messageThread.customization_info ? messageThread.customization_info.emoji : null,
+		color:
+			messageThread.customization_info && messageThread.customization_info.outgoing_bubble_color
+				? messageThread.customization_info.outgoing_bubble_color.slice(2)
+				: null,
+		nicknames:
+			messageThread.customization_info && messageThread.customization_info.participant_customizations
+				? messageThread.customization_info.participant_customizations.reduce((res: any, val: any) => {
+						if (val.nickname) res[val.participant_id] = val.nickname;
+						return res;
+				  }, {})
+				: {},
+		adminIDs: messageThread.thread_admins,
+
+		// @Undocumented
+		topEmojis: messageThread.top_emojis,
+		reactionsMuteMode: messageThread.reactions_mute_mode.toLowerCase(),
+		mentionsMuteMode: messageThread.mentions_mute_mode.toLowerCase(),
+		isPinProtected: messageThread.is_pin_protected,
+		relatedPageThread: messageThread.related_page_thread,
+
+		// @Legacy
+		name: messageThread.name,
+		snippet: snippetText,
+		snippetSender: snippetID,
+		snippetAttachments: [],
+		serverTimestamp: messageThread.updated_time_precise,
+		imageSrc: messageThread.image ? messageThread.image.uri : null,
+		isCanonicalUser: messageThread.is_canonical_neo_user,
+		isCanonical: messageThread.thread_type != 'GROUP',
+		recipientsLoadable: true,
+		hasEmailParticipant: false,
+		readOnly: false,
+		canReply: messageThread.cannot_reply_reason == null,
+		lastMessageTimestamp: messageThread.last_message ? messageThread.last_message.timestamp_precise : null,
+		lastMessageType: 'message',
+		lastReadTimestamp: lastReadTimestamp,
+		threadType: messageThread.thread_type == 'GROUP' ? 2 : 1
+	};
+}
+
+function formatEventReminders(reminder: any) {
+	return {
+		reminderID: reminder.id,
+		eventCreatorID: reminder.lightweight_event_creator.id,
+		time: reminder.time,
+		eventType: reminder.lightweight_event_type.toLowerCase(),
+		locationName: reminder.location_name,
+		// @TODO verify this
+		locationCoordinates: reminder.location_coordinates,
+		locationPage: reminder.location_page,
+		eventStatus: reminder.lightweight_event_status.toLowerCase(),
+		note: reminder.note,
+		repeatMode: reminder.repeat_mode.toLowerCase(),
+		eventTitle: reminder.event_title,
+		triggerMessage: reminder.trigger_message,
+		secondsToNotifyBefore: reminder.seconds_to_notify_before,
+		allowsRsvp: reminder.allows_rsvp,
+		relatedEvent: reminder.related_event,
+		members: reminder.event_reminder_members.edges.map((member: any) => ({
+			memberID: member.node.id,
+			state: member.guest_list_state.toLowerCase()
+		}))
+	};
+}

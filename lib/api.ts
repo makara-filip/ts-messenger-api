@@ -1373,6 +1373,36 @@ export default class Api {
 			});
 	}
 
+	async getThreadInfo(threadId: ThreadID): Promise<any> {
+		const form = {
+			queries: JSON.stringify({
+				o0: {
+					// This doc_id is valid as of February 1st, 2018.
+					doc_id: '1498317363570230',
+					query_params: {
+						id: threadId,
+						message_limit: 0,
+						load_messages: 0,
+						load_read_receipts: false,
+						before: null
+					}
+				}
+			})
+		};
+
+		return await this._defaultFuncs
+			.post('https://www.facebook.com/api/graphqlbatch/', this.ctx.jar, form)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then((resData: any) => {
+				if (resData.error) throw resData;
+				// This returns us an array of things. The last one is the success/failure one.
+				// @TODO What do we do in this case?
+				if (resData[resData.length - 1].error_results !== 0) throw new Error('There was an error_result');
+
+				return formatters.formatThreadGraphQLResponse(resData[0]);
+			});
+	}
+
 	async getThreadHistory(threadID: ThreadID, amount: number, timestamp: number | undefined): Promise<Message[]> {
 		// `queries` has to be a string. I couldn't tell from the dev console. This
 		// took me a really long time to figure out. I deserve a cookie for this.
