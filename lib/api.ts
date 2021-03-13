@@ -1265,37 +1265,6 @@ export default class Api {
 		}
 	}
 
-	changeThreadEmoji(emoji: string, threadID: ThreadID, callback: (err?: any) => void): void {
-		const form = {
-			emoji_choice: emoji,
-			thread_or_other_fbid: threadID
-		};
-
-		this._defaultFuncs
-			.post(
-				'https://www.facebook.com/messaging/save_thread_emoji/?source=thread_settings&__pc=EXP1%3Amessengerdotcom_pkg',
-				this.ctx.jar,
-				form
-			)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error === 1357031) {
-					throw {
-						error:
-							"Trying to change emoji of a chat that doesn't exist. Have at least one message in the thread before trying to change the emoji."
-					};
-				}
-				if (resData.error) {
-					throw resData;
-				}
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('changeThreadEmoji', err);
-				return callback(err);
-			});
-	}
-
 	async getFriendsList(): Promise<FriendsList> {
 		return await this._defaultFuncs
 			.postFormData('https://www.facebook.com/chat/user_info_all', this.ctx.jar, {}, { viewer: this.ctx.userID })
