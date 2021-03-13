@@ -1174,6 +1174,39 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	async changeGroupName(threadId: ThreadID, newName: string): Promise<void> {
+		this.checkForActiveState();
+		if (!newName) throw new Error('Undefined argument: newName was not specified.');
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '32',
+			payload: JSON.stringify({ thread_key: threadId, thread_name: newName }),
+			queue_name: threadId.toString(),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
+	async changeGroupPhoto(threadId: ThreadID, photo: stream.Readable): Promise<void> {
+		this.checkForActiveState();
+
+		// upload photo to get an attachment ID
+		const uploadResponse = await this.uploadAttachment([photo]);
+		const attachmentId = getAttachmentID(uploadResponse[0]);
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '37',
+			payload: JSON.stringify({ thread_key: threadId, image_id: attachmentId }),
+			queue_name: 'thread_image',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
 	changeArchivedStatus(threadOrThreads: ThreadID | ThreadID[], archive: boolean, callback: (err?: any) => void): void {
 		if (!callback) {
 			callback = function () {};
