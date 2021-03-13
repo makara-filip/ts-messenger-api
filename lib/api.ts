@@ -1096,6 +1096,37 @@ export default class Api {
 			});
 	}
 
+	/** Sets a custom emoji to the specified thread as a part of chat customisation.
+	 * If you want to keep the original Facebook "like", set an empty string as the `emoji` argument. */
+	async changeThreadEmoji(threadId: ThreadID, emoji: string): Promise<void> {
+		this.checkForActiveState();
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '53',
+			payload: JSON.stringify({ thread_key: threadId, custom_emoji: emoji }),
+			queue_name: 'thread_custom_emoji',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
+	async changeThreadColorTheme(threadId: ThreadID, themeId: number): Promise<void> {
+		// TODO: add an enum for all theme IDs
+		this.checkForActiveState();
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '43',
+			payload: JSON.stringify({ thread_key: threadId, theme_fbid: themeId, source: null }),
+			queue_name: 'thread_theme',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
 	async addUserToGroup(userIds: UserID | UserID[], threadId: ThreadID): Promise<void> {
 		this.checkForActiveState();
 		if (!(userIds instanceof Array)) userIds = [userIds];
