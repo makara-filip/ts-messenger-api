@@ -11,5 +11,5 @@
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true
 	},
-	"exclude": ["dist", "test"]
+	"exclude": ["dist", "test", "extracts"]
 }
