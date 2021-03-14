@@ -9,9 +9,9 @@ import { Response } from 'got';
 
 export type PrimitiveObject = Record<string, string | number | boolean | null | undefined>;
 
-export interface Credentials {
-	email: string;
-	password: string;
+export interface LoginCredentials {
+	email?: string;
+	password?: string;
 	appState?: AppState;
 }
 

@@ -1,4 +1,4 @@
-import { ApiCtx, ApiOptions, AppState, Credentials, Dfs } from './lib/types';
+import { ApiCtx, ApiOptions, LoginCredentials, Dfs } from './lib/types';
 import * as utils from './lib/utils';
 import log, { LogLevels } from 'npmlog';
 import Jar from './lib/jar';
@@ -8,7 +8,7 @@ import { Response } from 'got';
 
 const defaultLogRecordSize = 100;
 
-export default async function login(loginData: Credentials, options: ApiOptions): Promise<Api | undefined> {
+export default async function login(loginData: LoginCredentials, options: ApiOptions): Promise<Api | undefined> {
 	const globalOptions: ApiOptions = {
 		selfListen: false,
 		listenEvents: false,
@@ -23,7 +23,7 @@ export default async function login(loginData: Credentials, options: ApiOptions)
 	setOptions(globalOptions, options);
 
 	//TODO: Add support for appState
-	return await loginHelper(loginData.email, loginData.password, globalOptions, loginData.appState);
+	return await loginHelper(loginData, globalOptions);
 }
 
 /** Sets `globalOptions` and npmlog based on the `options` attribute */
@@ -69,7 +69,7 @@ function setOptions(globalOptions: ApiOptions, options: ApiOptions): void {
 	});
 }
 
-async function loginHelper(email: string, password: string, globalOptions: ApiOptions, appState?: AppState) {
+async function loginHelper(credentials: LoginCredentials, globalOptions: ApiOptions) {
 	let mainPromise: Promise<any>;
 	const jar = new Jar();
 
@@ -78,8 +78,8 @@ async function loginHelper(email: string, password: string, globalOptions: ApiOp
 	let api: Api | undefined;
 
 	// If we're given an appState we loop through it and save each cookie into the jar.
-	if (appState) {
-		appState.map(c =>
+	if (credentials.appState) {
+		credentials.appState.map(c =>
 			jar.setCookie(
 				`${c.key}=${c.value}; expires=${c.expires}; domain=${c.domain}; path=${c.path};`,
 				'http://' + c.domain
@@ -87,14 +87,14 @@ async function loginHelper(email: string, password: string, globalOptions: ApiOp
 		);
 		// Load the main page.
 		mainPromise = utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar));
-	} else {
+	} else if (credentials.email && credentials.password) {
 		// Open the main page, then we login with the given credentials and finally
 		// load the main page again (it'll give us some IDs that we need)
 		mainPromise = utils
 			.get('https://m.facebook.com/', null, null, globalOptions)
 			.then(utils.saveCookies(jar))
-			.then(makeLogin(jar, email, password, globalOptions));
-	}
+			.then(makeLogin(jar, credentials.email, credentials.password, globalOptions));
+	} else throw new Error('Argument error: you must specify AppState or email-password credentials');
 
 	mainPromise = mainPromise.then(async (res: Response<string>) => {
 		// Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
@@ -294,7 +294,7 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 
 											// Simply call loginHelper because all it needs is the jar
 											// and will then complete the login process
-											return await loginHelper(email, password, loginOptions, appState);
+											return await loginHelper({ email, password }, loginOptions);
 										})
 										.catch((err: any) => {
 											throw err;
@@ -334,7 +334,7 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 
 									// Simply call loginHelper because all it needs is the jar
 									// and will then complete the login process
-									return await loginHelper(email, password, loginOptions, appState);
+									return await loginHelper({ email, password }, loginOptions);
 								})
 								.catch((e: any) => {
 									throw e;
