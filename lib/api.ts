@@ -915,7 +915,7 @@ export default class Api {
 			label: '33',
 			payload: JSON.stringify({ message_id: messageID }),
 			queue_name: 'unsend_message',
-			task_id: this.websocketTaskNumber,
+			task_id: this.websocketTaskNumber++,
 			failure_count: null
 		});
 		await this.sendWebsocketContent(wsContent);
@@ -936,7 +936,7 @@ export default class Api {
 				forwarded_msg_id: messageID
 			}),
 			queue_name: threadID.toString(),
-			task_id: this.websocketTaskNumber,
+			task_id: this.websocketTaskNumber++,
 			failure_count: null
 		});
 		await this.sendWebsocketContent(wsContent);
@@ -1096,148 +1096,115 @@ export default class Api {
 			});
 	}
 
-	addUserToGroup(userID: UserID | UserID[], threadID: ThreadID, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
+	/** Sets a custom emoji to the specified thread as a part of chat customisation.
+	 * If you want to keep the original Facebook "like", set an empty string as the `emoji` argument. */
+	async changeThreadEmoji(threadId: ThreadID, emoji: string): Promise<void> {
+		this.checkForActiveState();
 
-		if (!(userID instanceof Array)) {
-			userID = [userID];
-		}
-
-		const messageAndOTID = utils.generateOfflineThreadingID();
-		const form: RequestForm = {
-			client: 'mercury',
-			action_type: 'ma-type:log-message',
-			author: 'fbid:' + this.ctx.userID,
-			thread_id: '',
-			timestamp: Date.now(),
-			timestamp_absolute: 'Today',
-			timestamp_relative: utils.generateTimestampRelative(),
-			timestamp_time_passed: '0',
-			is_unread: false,
-			is_cleared: false,
-			is_forward: false,
-			is_filtered_content: false,
-			is_filtered_content_bh: false,
-			is_filtered_content_account: false,
-			is_spoof_warning: false,
-			source: 'source:chat:web',
-			'source_tags[0]': 'source:chat',
-			log_message_type: 'log:subscribe',
-			status: '0',
-			offline_threading_id: messageAndOTID,
-			message_id: messageAndOTID,
-			threading_id: utils.generateThreadingID(this.ctx.clientID),
-			manual_retry_cnt: '0',
-			thread_fbid: threadID
-		};
-
-		for (let i = 0; i < userID.length; i++) {
-			if (utils.getType(userID[i]) !== 'Number' && utils.getType(userID[i]) !== 'String') {
-				throw {
-					error: 'Elements of userID should be of type Number or String and not ' + utils.getType(userID[i]) + '.'
-				};
-			}
-
-			form['log_message_data[added_participants][' + i + ']'] = 'fbid:' + userID[i];
-		}
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/send/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (!resData) {
-					throw { error: 'Add to group failed.' };
-				}
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('addUserToGroup', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '53',
+			payload: JSON.stringify({ thread_key: threadId, custom_emoji: emoji }),
+			queue_name: 'thread_custom_emoji',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	removeUserFromGroup(userID: UserID, threadID: ThreadID, callback: (err?: any) => void): void {
-		const form = {
-			uid: userID,
-			tid: threadID
-		};
+	async changeThreadColorTheme(threadId: ThreadID, themeId: number): Promise<void> {
+		// TODO: add an enum for all theme IDs
+		this.checkForActiveState();
 
-		this._defaultFuncs
-			.post('https://www.facebook.com/chat/remove_participants', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (!resData) {
-					throw { error: 'Remove from group failed.' };
-				}
-				if (resData.error) {
-					throw resData;
-				}
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('removeUserFromGroup', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '43',
+			payload: JSON.stringify({ thread_key: threadId, theme_fbid: themeId, source: null }),
+			queue_name: 'thread_theme',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
 	}
 
-	changeAdminStatus(
-		threadID: ThreadID,
-		adminIDs: Array<UserID>,
-		adminStatus: boolean,
-		callback: (err?: any) => void
-	): void {
-		if (utils.getType(adminIDs) !== 'Array') {
-			throw { error: 'changeAdminStatus: adminIDs must be an array or string' };
-		}
+	async addUserToGroup(userIds: UserID | UserID[], threadId: ThreadID): Promise<void> {
+		this.checkForActiveState();
+		if (!(userIds instanceof Array)) userIds = [userIds];
 
-		if (utils.getType(adminStatus) !== 'Boolean') {
-			throw { error: 'changeAdminStatus: adminStatus must be a string' };
-		}
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '23',
+			payload: JSON.stringify({ thread_key: threadId, contact_ids: userIds }),
+			queue_name: threadId.toString(),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
 
-		if (!callback) {
-			callback = () => {};
-		}
+	async removeUserFromGroup(userId: UserID, threadId: ThreadID): Promise<void> {
+		this.checkForActiveState();
 
-		if (utils.getType(callback) !== 'Function' && utils.getType(callback) !== 'AsyncFunction') {
-			throw { error: 'changeAdminStatus: callback is not a function' };
-		}
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '140',
+			payload: JSON.stringify({ thread_id: threadId, contact_id: userId }),
+			queue_name: 'remove_participant_v2',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
 
-		const form: any = {
-			thread_fbid: threadID
-		};
+	async leaveGroup(threadId: ThreadID): Promise<void> {
+		await this.removeUserFromGroup(this.ctx.userID, threadId);
+	}
 
-		let i = 0;
-		for (const u of adminIDs) {
-			form[`admin_ids[${i++}]`] = u;
-		}
-		form['add'] = adminStatus;
+	async changeAdminStatus(threadId: ThreadID, userId: UserID, isAdmin: boolean): Promise<void> {
+		this.checkForActiveState();
 
-		this._defaultFuncs
-			.post('https://www.facebook.com/messaging/save_admins/?dpr=1', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error) {
-					switch (resData.error) {
-						case 1976004:
-							throw { error: 'Cannot alter admin status: you are not an admin.', rawResponse: resData };
-						case 1357031:
-							throw { error: 'Cannot alter admin status: this thread is not a group chat.', rawResponse: resData };
-						default:
-							throw { error: 'Cannot alter admin status: unknown error.', rawResponse: resData };
-					}
-				}
-				callback();
-			})
-			.catch(err => {
-				log.error('changeAdminStatus', err);
-				return callback(err);
-			});
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '25',
+			payload: JSON.stringify({ thread_key: threadId, contact_id: userId, is_admin: isAdmin }),
+			queue_name: 'admin_status',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
+	async changeGroupName(threadId: ThreadID, newName: string): Promise<void> {
+		this.checkForActiveState();
+		if (!newName) throw new Error('Undefined argument: newName was not specified.');
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '32',
+			payload: JSON.stringify({ thread_key: threadId, thread_name: newName }),
+			queue_name: threadId.toString(),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+
+	async changeGroupPhoto(threadId: ThreadID, photo: stream.Readable): Promise<void> {
+		this.checkForActiveState();
+
+		// upload photo to get an attachment ID
+		const uploadResponse = await this.uploadAttachment([photo]);
+		const attachmentId = getAttachmentID(uploadResponse[0]);
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '37',
+			payload: JSON.stringify({ thread_key: threadId, image_id: attachmentId }),
+			queue_name: 'thread_image',
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
 	}
 
 	changeArchivedStatus(threadOrThreads: ThreadID | ThreadID[], archive: boolean, callback: (err?: any) => void): void {
@@ -1329,37 +1296,6 @@ export default class Api {
 					return callback(err);
 				});
 		}
-	}
-
-	changeThreadEmoji(emoji: string, threadID: ThreadID, callback: (err?: any) => void): void {
-		const form = {
-			emoji_choice: emoji,
-			thread_or_other_fbid: threadID
-		};
-
-		this._defaultFuncs
-			.post(
-				'https://www.facebook.com/messaging/save_thread_emoji/?source=thread_settings&__pc=EXP1%3Amessengerdotcom_pkg',
-				this.ctx.jar,
-				form
-			)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error === 1357031) {
-					throw {
-						error:
-							"Trying to change emoji of a chat that doesn't exist. Have at least one message in the thread before trying to change the emoji."
-					};
-				}
-				if (resData.error) {
-					throw resData;
-				}
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('changeThreadEmoji', err);
-				return callback(err);
-			});
 	}
 
 	async getFriendsList(): Promise<FriendsList> {
