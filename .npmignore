@@ -1,3 +1,22 @@
+# Editor files/folders which shouldn't be included in npm package
+.vscode/
+.editorconfig
+.eslintrc.json
+.gitattributes
+.github/
+.mocharc.json
+.prettierrc
+tsconfig.json
+
+# Examples & test accounts not included
 extracts/
-test/testAppStates/
+test/
 examples/
+dist/examples/
+
+# actual source code
+index.ts
+lib/
+
+# only "dist" files & js files will be included in the packag
+*.js.map
