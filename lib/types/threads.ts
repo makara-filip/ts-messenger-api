@@ -1,4 +1,3 @@
-import { Message } from '../types';
 import { UserID } from './users';
 
 export type ThreadID = string | number;
@@ -49,4 +48,4 @@ export type ThreadNickname = {
 
 /** The thread history consisting of last messages.
  * Get an instance from `API.getThreadHistory()` method. */
-export type ThreadHistory = Array<Message>;
+export type ThreadHistory = any[];

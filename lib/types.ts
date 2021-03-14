@@ -109,7 +109,7 @@ export enum OutgoingMessageSendType {
 	ForwardMessage = 5
 }
 
-export interface MessageBase {
+export interface IncomingMessageBase {
 	type:
 		| 'message'
 		| 'event'
@@ -125,7 +125,7 @@ export interface MessageBase {
 
 export type MessageID = string;
 
-export interface Message extends MessageBase {
+export interface IncomingMessage extends IncomingMessageBase {
 	type: 'message';
 	attachments: AnyAttachment[];
 	/** The string corresponding to the message that was just received */
@@ -140,15 +140,15 @@ export interface Message extends MessageBase {
 	timestamp?: number;
 }
 
-export interface Event extends MessageBase {
+export interface IncomingEvent extends IncomingMessageBase {
 	type: 'event';
 	author: string;
 	logMessageBody: string;
 	logMessageData: string;
-	logMessageType?: LogMessageType;
+	logMessageType?: IncomingLogMessageType;
 }
 
-export type LogMessageType =
+export type IncomingLogMessageType =
 	| 'log:subscribe'
 	| 'log:unsubscribe'
 	| 'log:thread-name'
@@ -156,25 +156,25 @@ export type LogMessageType =
 	| 'log:thread-icon'
 	| 'log:user-nickname';
 
-export interface Typ extends MessageBase {
+export interface Typ extends IncomingMessageBase {
 	type: 'typ';
 	from: string;
 	fromMobile?: boolean;
 	isTyping: boolean;
 }
 
-export interface Read extends MessageBase {
+export interface Read extends IncomingMessageBase {
 	type: 'read';
 	time: string;
 }
 
-export interface ReadReceipt extends MessageBase {
+export interface ReadReceipt extends IncomingMessageBase {
 	type: 'read_receipt';
 	time: string;
 	reader: string;
 }
 
-export interface MessageReaction extends MessageBase {
+export interface IncomingMessageReaction extends IncomingMessageBase {
 	type: 'message_reaction';
 	messageID: string;
 	offlineThreadingID?: string;
@@ -191,7 +191,7 @@ export interface Presence {
 	userID: string;
 }
 
-export interface MessageUnsend extends MessageBase {
+export interface IncomingMessageUnsend extends IncomingMessageBase {
 	type: 'message_unsend';
 	senderID: string;
 	messageID: string;
@@ -199,7 +199,7 @@ export interface MessageUnsend extends MessageBase {
 	timestamp: number;
 }
 
-export interface MessageReply extends MessageBase {
+export interface IncomingMessageReply extends IncomingMessageBase {
 	type: 'message_reply';
 	attachments: AnyAttachment[];
 	body: string;
@@ -208,7 +208,7 @@ export interface MessageReply extends MessageBase {
 	messageID: string;
 	senderID: string;
 	isUnread?: boolean;
-	messageReply?: Message;
+	messageReply?: IncomingMessage;
 	timestamp?: number;
 }
 
@@ -387,15 +387,15 @@ export type AppState = Cookie[];
 export type ListenCallback = (
 	err?: string | { error: string; detail: string; res: { delta: any }; type: string },
 	message?:
-		| Message
-		| Event
+		| IncomingMessage
+		| IncomingEvent
 		| Typ
 		| Read
 		| ReadReceipt
-		| MessageReaction
+		| IncomingMessageReaction
 		| Presence
-		| MessageUnsend
-		| MessageReply
+		| IncomingMessageUnsend
+		| IncomingMessageReply
 		| ChangeThreadImage
 ) => void;
 

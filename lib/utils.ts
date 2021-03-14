@@ -3,9 +3,9 @@ import {
 	ApiCtx,
 	ApiOptions,
 	Dfs,
-	Event,
-	LogMessageType,
-	Message,
+	IncomingEvent,
+	IncomingLogMessageType,
+	IncomingMessage,
 	PrimitiveObject,
 	Read,
 	ReadReceipt,
@@ -592,7 +592,7 @@ export function formatAttachment(attachments: any[], attachmentIds: any, attachm
 		: [];
 }
 
-export function formatDeltaMessage(m: any): Message {
+export function formatDeltaMessage(m: any): IncomingMessage {
 	const md = m.delta.messageMetadata;
 
 	const mdata: any[] =
@@ -725,7 +725,7 @@ export function formatHistoryMessage(
 }
 
 // Get a more readable message type for AdminTextMessages
-export function getAdminTextMessageType(type: string): LogMessageType {
+export function getAdminTextMessageType(type: string): IncomingLogMessageType {
 	switch (type) {
 		case 'change_thread_theme':
 			return 'log:thread-color';
@@ -734,12 +734,12 @@ export function getAdminTextMessageType(type: string): LogMessageType {
 		case 'change_thread_icon':
 			return 'log:thread-icon';
 		default:
-			return type as LogMessageType;
+			return type as IncomingLogMessageType;
 	}
 }
 
-export function formatDeltaEvent(m: any): Event {
-	let logMessageType: LogMessageType | undefined = undefined;
+export function formatDeltaEvent(m: any): IncomingEvent {
+	let logMessageType: IncomingLogMessageType | undefined = undefined;
 	let logMessageData;
 
 	// log:thread-color => {theme_color}

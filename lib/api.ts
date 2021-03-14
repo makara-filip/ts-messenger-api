@@ -7,9 +7,9 @@ import {
 	AppState,
 	Dfs,
 	ListenCallback,
-	Message,
+	IncomingMessage,
 	MessageID,
-	MessageReply,
+	IncomingMessageReply,
 	MqttQueue,
 	OutgoingMessage,
 	OutgoingMessageSendType,
@@ -24,7 +24,7 @@ import * as formatters from './formatters';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
 import FormData from 'form-data';
-import { ThreadColor, ThreadID } from './types/threads';
+import { ThreadColor, ThreadHistory, ThreadID } from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 import { EventEmitter } from 'events';
 
@@ -489,7 +489,7 @@ export default class Api {
 							);
 						}
 						//Mention block - 1#
-						const callbackToReturn: MessageReply = {
+						const callbackToReturn: IncomingMessageReply = {
 							type: 'message_reply',
 							threadID: (delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
 								? delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
@@ -1339,7 +1339,7 @@ export default class Api {
 			});
 	}
 
-	async getThreadHistory(threadID: ThreadID, amount: number, timestamp: number | undefined): Promise<Message[]> {
+	async getThreadHistory(threadID: ThreadID, amount: number, timestamp: number | undefined): Promise<ThreadHistory> {
 		// `queries` has to be a string. I couldn't tell from the dev console. This
 		// took me a really long time to figure out. I deserve a cookie for this.
 		const form = {
