@@ -997,6 +997,32 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	async sendMessageReaction(threadId: ThreadID, messageId: MessageID, reaction: string): Promise<void> {
+		this.checkForActiveState();
+		if (!(threadId && messageId && reaction))
+			throw new Error('Invalid input to sendMessageReaction method. Got undefined arguments.');
+
+		const wsContent = this.createWebsocketContent();
+		wsContent.payload.tasks.push({
+			label: '29',
+			payload: JSON.stringify({
+				thread_key: threadId,
+				timestamp_ms: Date.now(),
+				message_id: messageId,
+				actor_id: this.ctx.userID,
+				reaction: reaction,
+				reaction_style: null
+			}),
+			queue_name: JSON.stringify(['reaction', messageId]),
+			task_id: this.websocketTaskNumber++,
+			failure_count: null
+		});
+		await this.sendWebsocketContent(wsContent);
+	}
+	async clearMessageReaction(threadId: ThreadID, messageId: MessageID): Promise<void> {
+		await this.sendMessageReaction(threadId, messageId, '');
+	}
+
 	async getUserInfo(id: UserID[]): Promise<UserInfoGeneralDictByUserId> {
 		const form: { [index: string]: UserID } = {};
 		id.map((v, i) => {
