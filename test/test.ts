@@ -3,7 +3,14 @@ import login from '../dist/index';
 import Api from '../dist/lib/api';
 import fs from 'fs';
 import path from 'path';
-import { AppState, Message, MessageBase, MessageID, MessageReply, Typ } from '../dist/lib/types';
+import {
+	AppState,
+	IncomingMessage,
+	IncomingMessageBase,
+	MessageID,
+	IncomingMessageReply,
+	Typ
+} from '../dist/lib/types';
 import { EventEmitter } from 'events';
 import { sentence } from 'txtgen';
 
@@ -63,18 +70,18 @@ describe('Fundamental API functioning', function () {
 	it('sends a typing indicator and spots it in another account', done => {
 		// the first account will send the indicator, the second one should spot it
 		let indicatorWasSent = false;
-		let indicatorRecievedTyping = false;
+		let indicatorReceivedTyping = false;
 		let isDone = false;
 
-		const listener = (event: MessageBase) => {
+		const listener = (event: IncomingMessageBase) => {
 			if (!indicatorWasSent || event.type !== 'typ' || isDone) return;
 			const typing = event as Typ;
 			if (typing.from != api1.ctx.userID) return;
 
-			if (!indicatorRecievedTyping) {
+			if (!indicatorReceivedTyping) {
 				// the first indication - should be "true"
 				expect(typing.isTyping, 'first typing indicator was not true').to.be.true;
-				indicatorRecievedTyping = true;
+				indicatorReceivedTyping = true;
 			} else {
 				// the second indication (after the timeout) - should be "false"
 				expect(typing.isTyping, 'second typing indicator was not false').to.be.false;
@@ -90,22 +97,22 @@ describe('Fundamental API functioning', function () {
 	});
 
 	let messageId: MessageID;
-	it('sends a text message and recieves it in another account', done => {
-		// the first account will send a message, the second one should recieve it
+	it('sends a text message and receives it in another account', done => {
+		// the first account will send a message, the second one should receive it
 		const messageBody = sentence().slice(0, -1);
 		let messageWasSent = false;
-		let messageWasRecieved = false;
+		let messageWasReceived = false;
 
 		// setup the event listener
-		const listener = (event: MessageBase) => {
-			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
-				expect((event as Message).body, 'incoming text message did not contain "body" property').to.exist;
-				expect((event as Message).body, 'incoming text message did not contain expected content').to.include(
+		const listener = (event: IncomingMessageBase) => {
+			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
+				expect((event as IncomingMessage).body, 'incoming text message did not contain "body" property').to.exist;
+				expect((event as IncomingMessage).body, 'incoming text message did not contain expected content').to.include(
 					messageBody
 				);
 				done();
-				messageId = (event as Message).messageID; // save the message ID for later use
-				messageWasRecieved = true;
+				messageId = (event as IncomingMessage).messageID; // save the message ID for later use
+				messageWasReceived = true;
 				emitter.removeListener('message', listener);
 			}
 		};
@@ -115,21 +122,22 @@ describe('Fundamental API functioning', function () {
 		messageWasSent = true;
 		api1.sendMessage({ body: messageBody }, api2.ctx.userID);
 	});
-	it('sends a reply to last message and recieves it in another account', done => {
-		// the first account will send a reply, the second one should recieve it
+	it('sends a reply to last message and receives it in another account', done => {
+		// the first account will send a reply, the second one should receive it
 		const messageBody = sentence().slice(0, -1);
 		let messageWasSent = false;
-		let messageWasRecieved = false;
+		let messageWasReceived = false;
 
 		// setup the event listener
-		const listener = (event: MessageBase) => {
-			if (messageWasSent && event.type === 'message_reply' && !messageWasRecieved) {
-				expect((event as MessageReply).body, 'incoming text message did not contain "body" property').to.exist;
-				expect((event as MessageReply).body, 'incoming text message did not contain expected content').to.include(
-					messageBody
-				);
+		const listener = (event: IncomingMessageBase) => {
+			if (messageWasSent && event.type === 'message_reply' && !messageWasReceived) {
+				expect((event as IncomingMessageReply).body, 'incoming text message did not contain "body" property').to.exist;
+				expect(
+					(event as IncomingMessageReply).body,
+					'incoming text message did not contain expected content'
+				).to.include(messageBody);
 				done();
-				messageWasRecieved = true;
+				messageWasReceived = true;
 				emitter.removeListener('message', listener);
 			}
 		};
@@ -140,18 +148,19 @@ describe('Fundamental API functioning', function () {
 		api1.sendMessage({ body: messageBody, replyToMessage: messageId }, api2.ctx.userID);
 	});
 
-	it('sends an image attachment and recieves it in another account', done => {
-		// the first account will send a message, the second one should recieve it
+	it('sends an image attachment and receives it in another account', done => {
+		// the first account will send a message, the second one should receive it
 		let messageWasSent = false;
-		let messageWasRecieved = false;
+		let messageWasReceived = false;
 
 		// setup the event listener
 		const listener = (event: any) => {
-			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
-				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
-				expect((event as Message).attachments).to.be.not.empty;
+			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
+				expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
+					.exist;
+				expect((event as IncomingMessage).attachments).to.be.not.empty;
 				done();
-				messageWasRecieved = true;
+				messageWasReceived = true;
 				emitter.removeListener('message', listener);
 			}
 		};
@@ -165,18 +174,19 @@ describe('Fundamental API functioning', function () {
 		);
 	});
 
-	xit('sends an audio attachment and recieves it in another account', done => {
-		// the first account will send a message, the second one should recieve it
+	xit('sends an audio attachment and receives it in another account', done => {
+		// the first account will send a message, the second one should receive it
 		let messageWasSent = false;
-		let messageWasRecieved = false;
+		let messageWasReceived = false;
 
 		// setup the event listener
 		const listener = (event: any) => {
-			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
-				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
-				expect((event as Message).attachments).to.be.not.empty;
+			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
+				expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
+					.exist;
+				expect((event as IncomingMessage).attachments).to.be.not.empty;
 				done();
-				messageWasRecieved = true;
+				messageWasReceived = true;
 				emitter.removeListener('message', listener);
 			}
 		};
@@ -190,18 +200,19 @@ describe('Fundamental API functioning', function () {
 		);
 	});
 
-	xit('sends a video attachment and recieves it in another account', done => {
-		// the first account will send a message, the second one should recieve it
+	xit('sends a video attachment and receives it in another account', done => {
+		// the first account will send a message, the second one should receive it
 		let messageWasSent = false;
-		let messageWasRecieved = false;
+		let messageWasReceived = false;
 
 		// setup the event listener
 		const listener = (event: any) => {
-			if (messageWasSent && event.type === 'message' && !messageWasRecieved) {
-				expect((event as Message).attachments, 'incoming message did not contain "attachments" property').to.exist;
-				expect((event as Message).attachments).to.be.not.empty;
+			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
+				expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
+					.exist;
+				expect((event as IncomingMessage).attachments).to.be.not.empty;
 				done();
-				messageWasRecieved = true;
+				messageWasReceived = true;
 				emitter.removeListener('message', listener);
 			}
 		};
