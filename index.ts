@@ -211,7 +211,7 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 			login_source: 'comet_headerless_login',
 			next: '',
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			encpass: `#PWD_BROWSER:5:${currentTime}:${await require('../lib/passwordHasher.js')(
+			encpass: `#PWD_BROWSER:5:${currentTime}:${await require('./lib/passwordHasher.js')(
 				publicKeyData,
 				currentTime,
 				password

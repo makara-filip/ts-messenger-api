@@ -5,11 +5,12 @@
 		"lib": ["es2015"],
 		"declaration": true,
 		"sourceMap": true,
+		"allowJs": true,
 		"outDir": "./dist",
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true
 	},
-	"exclude": ["dist", "test", "extracts"]
+	"include": ["./index.ts", "./lib/**/*"]
 }
