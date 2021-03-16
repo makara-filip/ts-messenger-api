@@ -7,14 +7,12 @@ import {
 	AppState,
 	Dfs,
 	ListenCallback,
-	IncomingMessage,
 	MessageID,
 	IncomingMessageReply,
 	MqttQueue,
 	OutgoingMessage,
 	OutgoingMessageSendType,
 	Presence,
-	RequestForm,
 	Typ,
 	WebsocketContent
 } from './types';
@@ -24,7 +22,7 @@ import * as formatters from './formatters';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
 import FormData from 'form-data';
-import { ThreadColor, ThreadHistory, ThreadID } from './types/threads';
+import { ThreadHistory, ThreadID } from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 import { EventEmitter } from 'events';
 
@@ -67,80 +65,8 @@ export default class Api {
 		this._defaultFuncs = defaultFuncs;
 	}
 
-	logout(callback: (err?: any) => void): void {
-		callback = callback || function () {};
-
-		const form = {
-			pmid: '0'
-		};
-
-		this._defaultFuncs
-			.post(
-				'https://www.facebook.com/bluebar/modern_settings_menu/?help_type=364455653583099&show_contextual_help=1',
-				this.ctx.jar,
-				form
-			)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				const elem = resData.jsmods.instances[0][2][0].filter((v: any) => v.value === 'logout')[0];
-
-				const html = resData.jsmods.markup.filter((v: any) => v[0] === elem.markup.__m)[0][1].__html;
-
-				const form = {
-					fb_dtsg: utils.getFrom(html, '"fb_dtsg" value="', '"'),
-					ref: utils.getFrom(html, '"ref" value="', '"'),
-					h: utils.getFrom(html, '"h" value="', '"')
-				};
-
-				return this._defaultFuncs
-					.post('https://www.facebook.com/logout.php', this.ctx.jar, form)
-					.then(utils.saveCookies(this.ctx.jar));
-			})
-			.then((res: any) => {
-				if (!res.headers) {
-					throw { error: 'An error occurred when logging out.' };
-				}
-
-				return this._defaultFuncs.get(res.headers.location, this.ctx.jar).then(utils.saveCookies(this.ctx.jar));
-			})
-			.then(() => {
-				this.ctx.loggedIn = false;
-				log.info('logout', 'Logged out successfully.');
-				callback();
-			})
-			.catch((err: any) => {
-				log.error('logout', err);
-				return callback(err);
-			});
-	}
-
 	getAppState(): AppState {
 		return utils.getAppState(this.ctx.jar);
-	}
-
-	deleteMessage(messageOrMessages: MessageID[], callback = (err?: Error) => err): void {
-		const form: RequestForm = {
-			client: 'mercury'
-		};
-
-		for (let i = 0; i < messageOrMessages.length; i++) {
-			form[`message_ids[${i}]`] = messageOrMessages[i];
-		}
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/delete_messages.php', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('deleteMessage', err);
-				return callback(err);
-			});
 	}
 
 	/** Establish the websocket connection and enables message sending and receiving.
@@ -412,7 +338,7 @@ export default class Api {
 					}
 					if (fmtMsg) {
 						if (that.ctx.globalOptions.autoMarkDelivery) {
-							that._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
+							// that._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
 						}
 					}
 					return !that.ctx.globalOptions.selfListen && fmtMsg.senderID === that.ctx.userID
@@ -576,7 +502,7 @@ export default class Api {
 						}
 
 						if (this.ctx.globalOptions.autoMarkDelivery) {
-							this._markDelivery(callbackToReturn.threadID, callbackToReturn.messageID);
+							// this._markDelivery(callbackToReturn.threadID, callbackToReturn.messageID);
 						}
 
 						return !this.ctx.globalOptions.selfListen && callbackToReturn.senderID === this.ctx.userID
@@ -721,24 +647,6 @@ export default class Api {
 		}
 	}
 
-	private _markDelivery(threadID: ThreadID, messageID: MessageID) {
-		// if (threadID && messageID) {
-		// 	this.markAsDelivered(threadID, messageID, err => {
-		// 		if (err) {
-		// 			log.error('FIX THIS', err);
-		// 		} else {
-		// 			if (this.ctx.globalOptions.autoMarkRead) {
-		// 				this.markAsRead(threadID, undefined, err => {
-		// 					if (err) {
-		// 						log.error('FIX THIS', err);
-		// 					}
-		// 				});
-		// 			}
-		// 		}
-		// 	});
-		// }
-	}
-
 	resolvePhotoUrl(photoID: string, callback: (err?: Error, url?: string) => void): void {
 		if (!callback) {
 			throw { error: 'resolvePhotoUrl: need callback' };
@@ -764,38 +672,6 @@ export default class Api {
 			});
 	}
 
-	markAsDelivered(threadID: ThreadID, messageID: MessageID, callback: (err?: string) => void): void {
-		if (!callback) {
-			// eslint-disable-next-line @typescript-eslint/no-empty-function
-			callback = function () {};
-		}
-
-		if (!threadID || !messageID) {
-			return callback('Error: messageID or threadID is not defined');
-		}
-
-		const form: any = {};
-
-		form['message_ids[0]'] = messageID;
-		form['thread_ids[' + threadID + '][0]'] = messageID;
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/delivery_receipts.php', this.ctx.jar, form)
-			.then(utils.saveCookies(this.ctx.jar))
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('markAsDelivered', err);
-				return callback(err);
-			});
-	}
-
 	async markAsRead(threadId: ThreadID): Promise<void> {
 		// similar code structure as in "sendMessage" method...
 		this.checkForActiveState();
@@ -812,32 +688,6 @@ export default class Api {
 			failure_count: null
 		});
 		await this.sendWebsocketContent(wsContent);
-	}
-
-	markAsReadAll(callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-
-		const form = {
-			folder: 'inbox'
-		};
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/mark_folder_as_read.php', this.ctx.jar, form)
-			.then(utils.saveCookies(this.ctx.jar))
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('markAsReadAll', err);
-				return callback(err);
-			});
 	}
 
 	/**
@@ -1061,67 +911,6 @@ export default class Api {
 		return retObj;
 	}
 
-	// -1=permanent mute, 0=unmute, 60=one minute, 3600=one hour, etc.
-	muteThread(threadID: ThreadID, muteSeconds: number, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-
-		const form = {
-			thread_fbid: threadID,
-			mute_settings: muteSeconds
-		};
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/change_mute_thread.php', this.ctx.jar, form)
-			.then(utils.saveCookies(this.ctx.jar))
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(function (resData) {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch(function (err) {
-				log.error('muteThread', err);
-				return callback(err);
-			});
-	}
-
-	deleteThread(threadOrThreads: ThreadID | ThreadID[], callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-
-		const form: RequestForm = {
-			client: 'mercury'
-		};
-
-		if (!(threadOrThreads instanceof Array)) {
-			threadOrThreads = [threadOrThreads];
-		}
-
-		for (let i = 0; i < threadOrThreads.length; i++) {
-			form['ids[' + i + ']'] = threadOrThreads[i];
-		}
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/delete_thread.php', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error) {
-					throw resData;
-				}
-
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('deleteThread', err);
-				return callback(err);
-			});
-	}
-
 	/** Sets a custom emoji to the specified thread as a part of chat customisation.
 	 * If you want to keep the original Facebook "like", set an empty string as the `emoji` argument. */
 	async changeThreadEmoji(threadId: ThreadID, emoji: string): Promise<void> {
@@ -1231,97 +1020,6 @@ export default class Api {
 			failure_count: null
 		});
 		await this.sendWebsocketContent(wsContent);
-	}
-
-	changeArchivedStatus(threadOrThreads: ThreadID | ThreadID[], archive: boolean, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-
-		const form: any = {};
-
-		if (threadOrThreads instanceof Array) {
-			for (let i = 0; i < threadOrThreads.length; i++) {
-				form['ids[' + threadOrThreads[i] + ']'] = archive;
-			}
-		} else {
-			form['ids[' + threadOrThreads + ']'] = archive;
-		}
-
-		this._defaultFuncs
-			.post('https://www.facebook.com/ajax/mercury/change_archived_status.php', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (resData.error) {
-					throw resData;
-				}
-				return callback();
-			})
-			.catch((err: any) => {
-				log.error('changeArchivedStatus', err);
-				return callback(err);
-			});
-	}
-
-	changeBlockedStatus(userID: UserID, block: boolean, callback: (err?: any) => void): void {
-		if (!callback) {
-			callback = function () {};
-		}
-		if (block) {
-			this._defaultFuncs
-				.post(
-					'https://www.facebook.com/nfx/block_messages/?thread_fbid=' + userID + '&location=www_chat_head',
-					this.ctx.jar,
-					{}
-				)
-				.then(utils.saveCookies(this.ctx.jar))
-				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-				.then((resData: any) => {
-					if (resData.error) {
-						throw resData;
-					}
-					this._defaultFuncs
-						.post(
-							'https://www.facebook.com' +
-								(/action="(.+?)"+?/.exec(resData.jsmods.markup[0][1].__html) || '')[1].replace(/&amp;/g, '&'),
-							this.ctx.jar,
-							{}
-						)
-						.then(utils.saveCookies(this.ctx.jar))
-						.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-						.then((_resData: any) => {
-							if (_resData.error) {
-								throw _resData;
-							}
-							return callback();
-						});
-				})
-				.catch(function (err) {
-					log.error('changeBlockedStatus', err);
-					return callback(err);
-				});
-		} else {
-			this._defaultFuncs
-				.post(
-					'https://www.facebook.com/ajax/nfx/messenger_undo_block.php?story_location=messenger&context=%7B%22reportable_ent_token%22%3A%22' +
-						userID +
-						'%22%2C%22initial_action_name%22%3A%22BLOCK_MESSAGES%22%7D&',
-					this.ctx.jar,
-					{}
-				)
-				.then(utils.saveCookies(this.ctx.jar))
-				.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-				.then((resData: any) => {
-					if (resData.error) {
-						throw resData;
-					}
-					return callback();
-				})
-				.catch((err: any) => {
-					log.error('changeBlockedStatus', err);
-					return callback(err);
-				});
-		}
 	}
 
 	async getFriendsList(): Promise<FriendsList> {

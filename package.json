@@ -42,6 +42,7 @@
 	"devDependencies": {
 		"@types/chai": "^4.2.14",
 		"@types/events": "^3.0.0",
+		"@types/form-data": "^2.5.0",
 		"@types/mocha": "^8.2.0",
 		"@types/npmlog": "^4.1.2",
 		"@types/tough-cookie": "^4.0.0",
