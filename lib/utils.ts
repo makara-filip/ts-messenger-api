@@ -2,13 +2,13 @@ import {
 	AnyAttachment,
 	ApiCtx,
 	ApiOptions,
+	DeliveryReceipt,
 	Dfs,
 	IncomingEvent,
 	IncomingLogMessageType,
 	IncomingMessage,
 	IncomingMessageReply,
 	PrimitiveObject,
-	Read,
 	ReadReceipt,
 	RequestForm
 } from './types';
@@ -793,33 +793,22 @@ export function formatDeltaEvent(m: any): IncomingEvent {
 	};
 }
 
+export function formatDeltaDeliveryReceipt(delta: any): DeliveryReceipt {
+	return {
+		type: 'delivery_receipt',
+		timestamp: parseInt(delta.deliveredWatermarkTimestampMs),
+		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId),
+		recipient: parseInt(delta.actorFbId || delta.threadKey.otherUserFbId),
+		deliveredMessageIds: delta.messageIds
+	};
+}
+
 export function formatDeltaReadReceipt(delta: any): ReadReceipt {
-	// otherUserFbId seems to be used as both the readerID and the threadID in a 1-1 chat.
-	// In a group chat actorFbId is used for the reader and threadFbId for the thread.
 	return {
-		reader: (delta.threadKey.otherUserFbId || delta.actorFbId).toString(),
-		time: delta.actionTimestampMs,
-		threadId: formatID((delta.threadKey.otherUserFbId || delta.threadKey.threadFbId).toString()),
-		type: 'read_receipt'
-	};
-}
-
-export function formatReadReceipt(event: any): ReadReceipt {
-	return {
-		reader: event.reader.toString(),
-		time: event.time,
-		threadId: formatID((event.thread_fbid || event.reader).toString()),
-		type: 'read_receipt'
-	};
-}
-
-export function formatRead(event: any): Read {
-	return {
-		threadId: formatID(
-			((event.chat_ids && event.chat_ids[0]) || (event.thread_fbids && event.thread_fbids[0])).toString()
-		),
-		time: event.timestamp,
-		type: 'read'
+		type: 'read_receipt',
+		reader: parseInt(delta.actorFbId || delta.threadKey.otherUserFbId),
+		timestamp: parseInt(delta.actionTimestampMs),
+		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId)
 	};
 }
 

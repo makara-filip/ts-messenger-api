@@ -6,7 +6,6 @@ import {
 	ApiCtx,
 	AppState,
 	Dfs,
-	ListenCallback,
 	MessageID,
 	IncomingMessageReply,
 	MqttQueue,
@@ -397,23 +396,29 @@ export default class Api {
 
 		if (v.delta.class !== 'NewMessage' && !this.ctx.globalOptions.listenEvents) return [];
 
-		// TODO: v.delta.class == 'DeliveryReceipt'
 		switch (v.delta.class) {
-			case 'ReadReceipt':
-				let fmtMsg;
+			case 'DeliveryReceipt':
+				let formattedDelivery;
 				try {
-					fmtMsg = utils.formatDeltaReadReceipt(v.delta);
-				} catch (err) {
-					throw new Error('TODO'); // TODO
-					// return globalCallback({
-					// 	error:
-					// 		'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-					// 	detail: err,
-					// 	res: v.delta,
-					// 	type: 'parse_error'
-					// });
+					formattedDelivery = utils.formatDeltaReadReceipt(v.delta);
+				} catch (error) {
+					throw new Error(
+						`There was an unknown WS error. Contact the dev team about this (error code 935471). Original error: ${error}. Delta: ${v.delta}`
+					);
 				}
-				return [fmtMsg];
+				if (!formattedDelivery) throw new Error('Error code 935472-1');
+				return [formattedDelivery];
+			case 'ReadReceipt':
+				let formattedMessage;
+				try {
+					formattedMessage = utils.formatDeltaReadReceipt(v.delta);
+				} catch (error) {
+					throw new Error(
+						`There was an unknown WS error. Contact the dev team about this (error code 935472). Original error: ${error}. Delta: ${v.delta}`
+					);
+				}
+				if (!formattedMessage) throw new Error('Error code 935472-b');
+				return [formattedMessage];
 			case 'AdminTextMessage':
 				switch (v.delta.type) {
 					case 'change_thread_theme':

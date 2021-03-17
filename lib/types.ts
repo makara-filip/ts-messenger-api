@@ -111,7 +111,15 @@ export enum OutgoingMessageSendType {
 }
 
 export interface IncomingMessageBase {
-	type: 'message' | 'event' | 'typ' | 'read' | 'read_receipt' | 'message_reaction' | 'presence' | 'message_unsend';
+	type:
+		| 'message'
+		| 'event'
+		| 'typ'
+		| 'delivery_receipt'
+		| 'read_receipt'
+		| 'message_reaction'
+		| 'presence'
+		| 'message_unsend';
 	threadId: ThreadID;
 }
 export type AnyIncomingMessage = unknown; // TODO
@@ -158,15 +166,17 @@ export interface Typ extends IncomingMessageBase {
 	isTyping: boolean;
 }
 
-export interface Read extends IncomingMessageBase {
-	type: 'read';
-	time: string;
+export interface DeliveryReceipt extends IncomingMessageBase {
+	type: 'delivery_receipt';
+	timestamp: number;
+	recipient: UserID;
+	deliveredMessageIds: MessageID[];
 }
 
 export interface ReadReceipt extends IncomingMessageBase {
 	type: 'read_receipt';
-	time: string;
-	reader: string;
+	timestamp: number;
+	reader: UserID;
 }
 
 export interface IncomingMessageReaction extends IncomingMessageBase {
@@ -363,21 +373,6 @@ export interface MqttQueue {
 }
 
 export type AppState = Cookie[];
-
-export type ListenCallback = (
-	err?: { errorText: string; data: unknown; error: Error },
-	message?:
-		| IncomingMessage
-		| IncomingEvent
-		| Typ
-		| Read
-		| ReadReceipt
-		| IncomingMessageReaction
-		| Presence
-		| IncomingMessageUnsend
-		| IncomingMessageReply
-		| ChangeThreadImage
-) => void;
 
 /** Represents outgoing websocket content which Facebook accepts.
  * MUST be json-stringified just before being sent. */
