@@ -14,7 +14,8 @@ import {
 	OutgoingMessageSendType,
 	Presence,
 	Typ,
-	WebsocketContent
+	WebsocketContent,
+	IncomingMessage
 } from './types';
 import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
@@ -173,28 +174,15 @@ export default class Api {
 		});
 
 		mqttClient.on('message', (topic, message) => {
-			//TODO: This was modified
 			const jsonMessage = JSON.parse(message.toString());
-			// if (jsonMessage?.deltas) console.log(jsonMessage?.deltas[0]?.requestContext);
 			if (topic === '/t_ms') {
 				if (jsonMessage.firstDeltaSeqId && jsonMessage.syncToken) {
 					this.ctx.lastSeqId = jsonMessage.firstDeltaSeqId;
 					this.ctx.syncToken = jsonMessage.syncToken;
 				}
 
-				if (jsonMessage.lastIssuedSeqId) {
-					this.ctx.lastSeqId = parseInt(jsonMessage.lastIssuedSeqId);
-				}
+				if (jsonMessage.lastIssuedSeqId) this.ctx.lastSeqId = parseInt(jsonMessage.lastIssuedSeqId);
 
-				if (
-					jsonMessage.queueEntityId &&
-					this.ctx.globalOptions.pageID &&
-					this.ctx.globalOptions.pageID != jsonMessage.queueEntityId
-				) {
-					return;
-				}
-
-				//If it contains more than 1 delta
 				for (const i in jsonMessage.deltas) {
 					const delta = jsonMessage.deltas[i];
 					this._parseDelta(
@@ -206,28 +194,32 @@ export default class Api {
 					);
 				}
 			} else if (topic === '/thread_typing' || topic === '/orca_typing_notifications') {
+				if (jsonMessage.type !== 'typ')
+					return mqttEE.emit(
+						'error',
+						new Error('There was an unknown WS error. Contact the dev team about this (error code 935466).')
+					);
 				const typ: Typ = {
 					type: 'typ',
 					isTyping: !!jsonMessage.state,
-					from: jsonMessage.sender_fbid.toString(),
-					threadID: utils.formatID((jsonMessage.thread || jsonMessage.sender_fbid).toString())
+					senderId: jsonMessage.sender_fbid as number,
+					threadId: (jsonMessage.sender_fbid || parseInt(jsonMessage.thread)) as number
 				};
 				mqttEE.emit('typ', typ);
-			} else if (topic === '/orca_presence') {
-				if (!this.ctx.globalOptions.updatePresence) {
-					for (const i in jsonMessage.list) {
-						const data = jsonMessage.list[i];
-						const userID = data['u'];
-
-						const presence: Presence = {
-							type: 'presence',
-							userID: userID.toString(),
-							//Convert to ms
-							timestamp: data['l'] * 1000,
-							statuses: data['p']
-						};
-						mqttEE.emit('presence', presence);
-					}
+			} else if (topic === '/orca_presence' && this.ctx.globalOptions.updatePresence) {
+				if (!(jsonMessage.list && jsonMessage.list.length))
+					return mqttEE.emit(
+						'error',
+						new Error('There was an unknown WS error. Contact the dev team about this (error code 935467)')
+					);
+				for (const data of jsonMessage.list) {
+					const presence: Presence = {
+						type: 'presence',
+						userID: data.u,
+						timestamp: data.l * 1000, // timestamp to milliseconds
+						status: data.p
+					};
+					mqttEE.emit('presence', presence);
 				}
 			}
 		});
@@ -318,47 +310,24 @@ export default class Api {
 	}
 
 	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const that = this;
-		if (v.delta.class == 'NewMessage') {
-			(function resolveAttachmentUrl(i): void {
-				// sometimes, with sticker message in group, delta does not contain 'attachments' property.
-				if (v.delta.attachments && i == v.delta.attachments.length) {
-					let fmtMsg;
-					try {
-						fmtMsg = utils.formatDeltaMessage(v);
-					} catch (err) {
-						return globalCallback({
-							error:
-								'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-							detail: err,
-							res: v,
-							type: 'parse_error'
-						});
-					}
-					if (fmtMsg) {
-						if (that.ctx.globalOptions.autoMarkDelivery) {
-							// that._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
-						}
-					}
-					return !that.ctx.globalOptions.selfListen && fmtMsg.senderID === that.ctx.userID
-						? undefined
-						: (function () {
-								globalCallback(undefined, fmtMsg);
-						  })();
-				} else {
-					if (v.delta.attachments && v.delta.attachments[i].mercury.attach_type == 'photo') {
-						that.resolvePhotoUrl(v.delta.attachments[i].fbid, (err?: Error, url?: string) => {
-							if (!err) v.delta.attachments[i].mercury.metadata.url = url;
-							return resolveAttachmentUrl(i + 1);
-						});
-					} else {
-						return resolveAttachmentUrl(i + 1);
-					}
-				}
-			})(0);
-		}
+		if (v.delta.class === 'NewMessage') {
+			let formattedMessage: IncomingMessage;
+			try {
+				formattedMessage = utils.formatDeltaMessage(v.delta);
+			} catch (error) {
+				return globalCallback({
+					errorText: 'There was an unknown WS error. Contact the dev team about this (error code 935468).',
+					error,
+					data: v
+				});
+			}
 
+			if (this.ctx.globalOptions.autoMarkDelivery) {
+				// this._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
+			}
+			if (!this.ctx.globalOptions.selfListen && formattedMessage.senderID == this.ctx.userID) return;
+			return globalCallback(undefined, formattedMessage);
+		}
 		if (v.delta.class == 'ClientPayload') {
 			const clientPayload = utils.decodeClientPayload(v.delta.payload);
 			if (clientPayload && clientPayload.deltas) {
@@ -368,10 +337,9 @@ export default class Api {
 						(function () {
 							globalCallback(undefined, {
 								type: 'message_reaction',
-								threadID: (delta.deltaMessageReaction.threadKey.threadFbId
+								threadId: delta.deltaMessageReaction.threadKey.threadFbId
 									? delta.deltaMessageReaction.threadKey.threadFbId
-									: delta.deltaMessageReaction.threadKey.otherUserFbId
-								).toString(),
+									: delta.deltaMessageReaction.threadKey.otherUserFbId,
 								messageID: delta.deltaMessageReaction.messageId,
 								reaction: delta.deltaMessageReaction.reaction,
 								senderID: delta.deltaMessageReaction.senderId.toString(),
@@ -382,10 +350,9 @@ export default class Api {
 						(function () {
 							globalCallback(undefined, {
 								type: 'message_unsend',
-								threadID: (delta.deltaRecallMessageData.threadKey.threadFbId
+								threadId: delta.deltaRecallMessageData.threadKey.threadFbId
 									? delta.deltaRecallMessageData.threadKey.threadFbId
-									: delta.deltaRecallMessageData.threadKey.otherUserFbId
-								).toString(),
+									: delta.deltaRecallMessageData.threadKey.otherUserFbId,
 								messageID: delta.deltaRecallMessageData.messageID,
 								senderID: delta.deltaRecallMessageData.senderID.toString(),
 								deletionTimestamp: delta.deltaRecallMessageData.deletionTimestamp,
@@ -417,7 +384,7 @@ export default class Api {
 						//Mention block - 1#
 						const callbackToReturn: IncomingMessageReply = {
 							type: 'message_reply',
-							threadID: (delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
+							threadId: (delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
 								? delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
 								: delta.deltaMessageReply.message.messageMetadata.threadKey.otherUserFbId
 							).toString(),
@@ -471,7 +438,7 @@ export default class Api {
 							//Mention block - 2#
 							callbackToReturn.messageReply = {
 								type: 'message',
-								threadID: (delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
+								threadId: (delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
 									? delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
 									: delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.otherUserFbId
 								).toString(),

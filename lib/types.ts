@@ -6,6 +6,7 @@ import stream from 'stream';
 import FormData from 'form-data';
 import { UserID } from './types/users';
 import { Response } from 'got';
+import { ThreadID } from './types/threads';
 
 export type PrimitiveObject = Record<string, string | number | boolean | null | undefined>;
 
@@ -120,7 +121,7 @@ export interface IncomingMessageBase {
 		| 'presence'
 		| 'message_unsend'
 		| 'message_reply';
-	threadID: string;
+	threadId: ThreadID;
 }
 
 export type MessageID = string;
@@ -136,8 +137,8 @@ export interface IncomingMessage extends IncomingMessageBase {
 	mentions: { id: string }[];
 	messageID: MessageID;
 	senderID: UserID;
-	isUnread?: boolean;
-	timestamp?: number;
+	// isUnread: boolean;
+	timestamp: number;
 }
 
 export interface IncomingEvent extends IncomingMessageBase {
@@ -158,8 +159,7 @@ export type IncomingLogMessageType =
 
 export interface Typ extends IncomingMessageBase {
 	type: 'typ';
-	from: string;
-	fromMobile?: boolean;
+	senderId: UserID;
 	isTyping: boolean;
 }
 
@@ -186,9 +186,9 @@ export interface IncomingMessageReaction extends IncomingMessageBase {
 
 export interface Presence {
 	type: 'presence';
-	statuses: UserStatus;
+	status: UserOnlineStatus;
 	timestamp: number;
-	userID: string;
+	userID: UserID;
 }
 
 export interface IncomingMessageUnsend extends IncomingMessageBase {
@@ -226,7 +226,7 @@ export interface ChangeThreadImage {
 	};
 }
 
-enum UserStatus {
+enum UserOnlineStatus {
 	/** away for 2 minutes */
 	IDLE = 0,
 	ONLINE = 2
@@ -385,7 +385,7 @@ export interface MqttQueue {
 export type AppState = Cookie[];
 
 export type ListenCallback = (
-	err?: string | { error: string; detail: string; res: { delta: any }; type: string },
+	err?: { errorText: string; data: unknown; error: Error },
 	message?:
 		| IncomingMessage
 		| IncomingEvent

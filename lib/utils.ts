@@ -592,30 +592,32 @@ export function formatAttachment(attachments: any[], attachmentIds: any, attachm
 		: [];
 }
 
-export function formatDeltaMessage(m: any): IncomingMessage {
-	const md = m.delta.messageMetadata;
+export function formatDeltaMessage(delta: any): IncomingMessage {
+	const messageMetadata = delta.messageMetadata;
 
-	const mdata: any[] =
-		m.delta.data === undefined ? [] : m.delta.data.prng === undefined ? [] : JSON.parse(m.delta.data.prng);
+	// mention data
+	const mdata: any[] = !delta.data ? [] : !delta.data.prng ? [] : JSON.parse(delta.data.prng);
 	const m_id = mdata.map(u => u.i);
 	const m_offset = mdata.map(u => u.o);
 	const m_length = mdata.map(u => u.l);
 	//TODO: This was modified
 	const mentions: { id: string }[] = [];
 	for (let i = 0; i < m_id.length; i++) {
-		mentions[m_id[i]] = m.delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
+		mentions[m_id[i]] = delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
 	}
 
 	return {
 		type: 'message',
-		senderID: formatID(md.actorFbId.toString()),
-		body: m.delta.body || '',
-		threadID: formatID((md.threadKey.threadFbId || md.threadKey.otherUserFbId).toString()),
-		messageID: md.messageId,
-		attachments: ((m.delta.attachments as any[]) || []).map(v => _formatAttachment(v)),
-		mentions: mentions,
-		timestamp: md.timestamp,
-		isGroup: !!md.threadKey.threadFbId
+		senderID: parseInt(messageMetadata.actorFbId),
+		body: delta.body || '',
+		// when one-to-one chat, `otherUserFbId` is used by FB
+		// when group chat, `threadFbId` is used by FB
+		threadId: parseInt(messageMetadata.threadKey.threadFbId || messageMetadata.threadKey.otherUserFbId),
+		messageID: messageMetadata.messageId,
+		attachments: ((delta.attachments as unknown[]) || []).map(att => _formatAttachment(att)),
+		mentions,
+		timestamp: parseInt(messageMetadata.timestamp),
+		isGroup: !!messageMetadata.threadKey.threadFbId
 	};
 }
 
@@ -770,27 +772,11 @@ export function formatDeltaEvent(m: any): IncomingEvent {
 
 	return {
 		type: 'event',
-		threadID: formatID(
-			(m.messageMetadata.threadKey.threadFbId || m.messageMetadata.threadKey.otherUserFbId).toString()
-		),
+		threadId: m.messageMetadata.threadKey.threadFbId || m.messageMetadata.threadKey.otherUserFbId,
 		logMessageType: logMessageType,
 		logMessageData: logMessageData,
 		logMessageBody: m.messageMetadata.adminText,
 		author: m.messageMetadata.actorFbId
-	};
-}
-
-export function formatTyp(event: any) {
-	return {
-		isTyping: !!event.st,
-		from: event.from.toString(),
-		threadID: formatID((event.to || event.thread_fbid || event.from).toString()),
-		// When receiving typ indication from mobile, `from_mobile` isn't set.
-		// If it is, we just use that value.
-		// eslint-disable-next-line no-prototype-builtins
-		fromMobile: event.hasOwnProperty('from_mobile') ? event.from_mobile : true,
-		userID: (event.realtime_viewer_fbid || event.from).toString(),
-		type: 'typ'
 	};
 }
 
@@ -800,7 +786,7 @@ export function formatDeltaReadReceipt(delta: any): ReadReceipt {
 	return {
 		reader: (delta.threadKey.otherUserFbId || delta.actorFbId).toString(),
 		time: delta.actionTimestampMs,
-		threadID: formatID((delta.threadKey.otherUserFbId || delta.threadKey.threadFbId).toString()),
+		threadId: formatID((delta.threadKey.otherUserFbId || delta.threadKey.threadFbId).toString()),
 		type: 'read_receipt'
 	};
 }
@@ -809,14 +795,14 @@ export function formatReadReceipt(event: any): ReadReceipt {
 	return {
 		reader: event.reader.toString(),
 		time: event.time,
-		threadID: formatID((event.thread_fbid || event.reader).toString()),
+		threadId: formatID((event.thread_fbid || event.reader).toString()),
 		type: 'read_receipt'
 	};
 }
 
 export function formatRead(event: any): Read {
 	return {
-		threadID: formatID(
+		threadId: formatID(
 			((event.chat_ids && event.chat_ids[0]) || (event.thread_fbids && event.thread_fbids[0])).toString()
 		),
 		time: event.timestamp,
