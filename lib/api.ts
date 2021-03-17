@@ -17,7 +17,8 @@ import {
 	WebsocketContent,
 	IncomingMessage,
 	IncomingMessageReaction,
-	IncomingMessageUnsend
+	IncomingMessageUnsend,
+	AnyIncomingMessage
 } from './types';
 import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
@@ -187,13 +188,13 @@ export default class Api {
 
 				for (const i in jsonMessage.deltas) {
 					const delta = jsonMessage.deltas[i];
-					this._parseDelta(
-						(err, message) => {
-							if (err) return mqttEE.emit('error', err);
-							mqttEE.emit('message', message);
-						},
-						{ delta: delta }
-					);
+					let parsed = [];
+					try {
+						parsed = this._parseDelta({ delta });
+					} catch (error) {
+						return mqttEE.emit('error', error);
+					}
+					for (const parsedMessage of parsed) mqttEE.emit('message', parsedMessage);
 				}
 			} else if (topic === '/thread_typing' || topic === '/orca_typing_notifications') {
 				if (jsonMessage.type !== 'typ')
@@ -311,24 +312,23 @@ export default class Api {
 		});
 	}
 
-	private _parseDelta(globalCallback: ListenCallback, v: { delta: any }) {
+	private _parseDelta(v: { delta: any }): AnyIncomingMessage[] {
 		if (v.delta.class === 'NewMessage') {
 			let formattedMessage: IncomingMessage;
 			try {
 				formattedMessage = utils.formatDeltaMessage(v.delta);
 			} catch (error) {
-				return globalCallback({
-					errorText: 'There was an unknown WS error. Contact the dev team about this (error code 935468).',
-					error,
-					data: v
-				});
+				throw new Error(
+					`There was an unknown WS error. Contact the dev team about this (error code 935468). Original error: ${error}. Delta: ${v.delta}`
+				);
 			}
+			if (!formattedMessage) throw new Error('Error code 935468-b');
 
 			if (this.ctx.globalOptions.autoMarkDelivery) {
 				// this._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
 			}
-			if (!this.ctx.globalOptions.selfListen && formattedMessage.senderID == this.ctx.userID) return;
-			return globalCallback(undefined, formattedMessage);
+			if (!this.ctx.globalOptions.selfListen && formattedMessage.senderId == this.ctx.userID) return [];
+			return [formattedMessage];
 		}
 		if (v.delta.class == 'ClientPayload') {
 			let clientPayload;
@@ -337,13 +337,13 @@ export default class Api {
 				// of 8-bit integers which are later converted to string
 				clientPayload = JSON.parse(Buffer.from(v.delta.payload).toString());
 			} catch (error) {
-				return globalCallback({
-					errorText: 'There was an error parsing WS. Contact the dev team about this (error code 935469).',
-					error,
-					data: v
-				});
+				throw new Error(
+					`There was an error parsing WS. Contact the dev team about this (error code 935469). Original error: ${error}. Delta: ${v.delta}`
+				);
 			}
-			if (!(clientPayload && clientPayload.deltas)) return;
+			if (!(clientPayload && clientPayload.deltas)) throw new Error('Error code 935469-b');
+
+			const toBeReturned: AnyIncomingMessage[] = [];
 
 			for (const payloadDelta of clientPayload.deltas) {
 				if (payloadDelta.deltaMessageReaction && !!this.ctx.globalOptions.listenEvents) {
@@ -358,7 +358,7 @@ export default class Api {
 						messageSenderId: parseInt(payloadDelta.deltaMessageReaction.senderId),
 						reactionSenderId: parseInt(payloadDelta.deltaMessageReaction.userId)
 					};
-					globalCallback(undefined, messageReaction);
+					toBeReturned.push(messageReaction);
 				} else if (payloadDelta.deltaRecallMessageData && !!this.ctx.globalOptions.listenEvents) {
 					// "unsend message" by FB is called "recall message"
 					const messageUnsend: IncomingMessageUnsend = {
@@ -371,131 +371,31 @@ export default class Api {
 						messageSenderId: parseInt(payloadDelta.deltaRecallMessageData.senderID),
 						deletionTimestamp: parseInt(payloadDelta.deltaRecallMessageData.deletionTimestamp)
 					};
-					globalCallback(undefined, messageUnsend);
+					toBeReturned.push(messageUnsend);
 				} else if (payloadDelta.deltaMessageReply) {
-					//Mention block - #1
-					let mdata =
-						payloadDelta.deltaMessageReply.message === undefined
-							? []
-							: payloadDelta.deltaMessageReply.message.data === undefined
-							? []
-							: payloadDelta.deltaMessageReply.message.data.prng === undefined
-							? []
-							: JSON.parse(payloadDelta.deltaMessageReply.message.data.prng);
-					let m_id = mdata.map((u: any) => u.i);
-					let m_offset = mdata.map((u: any) => u.o);
-					let m_length = mdata.map((u: any) => u.l);
-
-					const mentions: any = {};
-
-					for (let i = 0; i < m_id.length; i++) {
-						mentions[m_id[i]] = (payloadDelta.deltaMessageReply.message.body || '').substring(
-							m_offset[i],
-							m_offset[i] + m_length[i]
+					let replyMessage: IncomingMessageReply;
+					try {
+						replyMessage = utils.formatDeltaReplyMessage(
+							payloadDelta.deltaMessageReply.repliedToMessage,
+							payloadDelta.deltaMessageReply.message
+						);
+					} catch (error) {
+						throw new Error(
+							`There was an unknown WS error. Contact the dev team about this (error code 935470). Original error: ${error}. Delta: ${v.delta}`
 						);
 					}
-					//Mention block - 1#
-					const callbackToReturn: IncomingMessageReply = {
-						type: 'message_reply',
-						threadId: (payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
-							? payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
-							: payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.otherUserFbId
-						).toString(),
-						messageID: payloadDelta.deltaMessageReply.message.messageMetadata.messageId,
-						senderID: payloadDelta.deltaMessageReply.message.messageMetadata.actorFbId.toString(),
-						attachments: payloadDelta.deltaMessageReply.message.attachments
-							.map(function (att: any) {
-								const mercury = JSON.parse(att.mercuryJSON);
-								Object.assign(att, mercury);
-								return att;
-							})
-							.map((att: any) => {
-								let x;
-								try {
-									x = utils._formatAttachment(att);
-								} catch (ex) {
-									x = att;
-									x.error = ex;
-									x.type = 'unknown';
-								}
-								return x;
-							}),
-						body: payloadDelta.deltaMessageReply.message.body || '',
-						isGroup: !!payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId,
-						mentions: mentions,
-						timestamp: payloadDelta.deltaMessageReply.message.messageMetadata.timestamp
-					};
-
-					if (payloadDelta.deltaMessageReply.repliedToMessage) {
-						//Mention block - #2
-						mdata =
-							payloadDelta.deltaMessageReply.repliedToMessage === undefined
-								? []
-								: payloadDelta.deltaMessageReply.repliedToMessage.data === undefined
-								? []
-								: payloadDelta.deltaMessageReply.repliedToMessage.data.prng === undefined
-								? []
-								: JSON.parse(payloadDelta.deltaMessageReply.repliedToMessage.data.prng);
-						m_id = mdata.map((u: any) => u.i);
-						m_offset = mdata.map((u: any) => u.o);
-						m_length = mdata.map((u: any) => u.l);
-
-						const rmentions: any = {};
-
-						for (let i = 0; i < m_id.length; i++) {
-							rmentions[m_id[i]] = (payloadDelta.deltaMessageReply.repliedToMessage.body || '').substring(
-								m_offset[i],
-								m_offset[i] + m_length[i]
-							);
-						}
-						//Mention block - 2#
-						callbackToReturn.messageReply = {
-							type: 'message',
-							threadId: (payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
-								? payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
-								: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.otherUserFbId
-							).toString(),
-							messageID: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.messageId,
-							senderID: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.actorFbId.toString(),
-							attachments: payloadDelta.deltaMessageReply.repliedToMessage.attachments
-								.map(function (att: any) {
-									const mercury = JSON.parse(att.mercuryJSON);
-									Object.assign(att, mercury);
-									return att;
-								})
-								.map((att: any) => {
-									let x;
-									try {
-										x = utils._formatAttachment(att);
-									} catch (ex) {
-										x = att;
-										x.error = ex;
-										x.type = 'unknown';
-									}
-									return x;
-								}),
-							body: payloadDelta.deltaMessageReply.repliedToMessage.body || '',
-							isGroup: !!payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId,
-							mentions: rmentions,
-							timestamp: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.timestamp
-						};
-					}
+					if (!replyMessage) throw new Error('Error code 935470-b');
 
 					if (this.ctx.globalOptions.autoMarkDelivery) {
-						// this._markDelivery(callbackToReturn.threadID, callbackToReturn.messageID);
+						// this._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
 					}
-
-					return !this.ctx.globalOptions.selfListen && callbackToReturn.senderID === this.ctx.userID
-						? undefined
-						: (function () {
-								globalCallback(undefined, callbackToReturn);
-						  })();
+					toBeReturned.push(replyMessage);
 				}
 			}
-			return;
+			return toBeReturned;
 		}
 
-		if (v.delta.class !== 'NewMessage' && !this.ctx.globalOptions.listenEvents) return;
+		if (v.delta.class !== 'NewMessage' && !this.ctx.globalOptions.listenEvents) return [];
 
 		// TODO: v.delta.class == 'DeliveryReceipt'
 		switch (v.delta.class) {
@@ -504,17 +404,16 @@ export default class Api {
 				try {
 					fmtMsg = utils.formatDeltaReadReceipt(v.delta);
 				} catch (err) {
-					return globalCallback({
-						error:
-							'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-						detail: err,
-						res: v.delta,
-						type: 'parse_error'
-					});
+					throw new Error('TODO'); // TODO
+					// return globalCallback({
+					// 	error:
+					// 		'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
+					// 	detail: err,
+					// 	res: v.delta,
+					// 	type: 'parse_error'
+					// });
 				}
-				return (function () {
-					globalCallback(undefined, fmtMsg);
-				})();
+				return [fmtMsg];
 			case 'AdminTextMessage':
 				switch (v.delta.type) {
 					case 'change_thread_theme':
@@ -526,24 +425,23 @@ export default class Api {
 						try {
 							fmtMsg = utils.formatDeltaEvent(v.delta);
 						} catch (err) {
-							return globalCallback({
-								error:
-									'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-								detail: err,
-								res: v.delta,
-								type: 'parse_error'
-							});
+							throw new Error('TODO'); // TODO
+							// return globalCallback({
+							// 	error:
+							// 		'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
+							// 	detail: err,
+							// 	res: v.delta,
+							// 	type: 'parse_error'
+							// });
 						}
-						return (function () {
-							globalCallback(undefined, fmtMsg);
-						})();
+						return [fmtMsg];
 					default:
-						return;
+						return [];
 				}
 				break;
 			//For group images
 			case 'ForcedFetch':
-				if (!v.delta.threadKey) return;
+				if (!v.delta.threadKey) return [];
 				const mid = v.delta.messageId;
 				const tid = v.delta.threadKey.threadFbId;
 				if (mid && tid) {
@@ -581,20 +479,21 @@ export default class Api {
 								!this.ctx.loggedIn
 									? undefined
 									: (function () {
-											globalCallback(undefined, {
-												type: 'change_thread_image',
-												threadID: utils.formatID(tid.toString()),
-												snippet: fetchData.snippet,
-												timestamp: fetchData.timestamp_precise,
-												author: fetchData.message_sender.id,
-												image: {
-													attachmentID:
-														fetchData.image_with_metadata && fetchData.image_with_metadata.legacy_attachment_id,
-													width: fetchData.image_with_metadata && fetchData.image_with_metadata.original_dimensions.x,
-													height: fetchData.image_with_metadata && fetchData.image_with_metadata.original_dimensions.y,
-													url: fetchData.image_with_metadata && fetchData.image_with_metadata.preview.uri
-												}
-											});
+											throw new Error('TODO'); // TODO
+											// globalCallback(undefined, {
+											// 	type: 'change_thread_image',
+											// 	threadID: utils.formatID(tid.toString()),
+											// 	snippet: fetchData.snippet,
+											// 	timestamp: fetchData.timestamp_precise,
+											// 	author: fetchData.message_sender.id,
+											// 	image: {
+											// 		attachmentID:
+											// 			fetchData.image_with_metadata && fetchData.image_with_metadata.legacy_attachment_id,
+											// 		width: fetchData.image_with_metadata && fetchData.image_with_metadata.original_dimensions.x,
+											// 		height: fetchData.image_with_metadata && fetchData.image_with_metadata.original_dimensions.y,
+											// 		url: fetchData.image_with_metadata && fetchData.image_with_metadata.preview.uri
+											// 	}
+											// });
 									  })();
 							}
 						})
@@ -610,21 +509,22 @@ export default class Api {
 				try {
 					formattedEvent = utils.formatDeltaEvent(v.delta);
 				} catch (err) {
-					return globalCallback({
-						error:
-							'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-						detail: err,
-						res: v.delta,
-						type: 'parse_error'
-					});
+					throw new Error('TODO'); // TODO
+					// return globalCallback({
+					// 	error:
+					// 		'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
+					// 	detail: err,
+					// 	res: v.delta,
+					// 	type: 'parse_error'
+					// });
 				}
-				return (!this.ctx.globalOptions.selfListen && formattedEvent.author.toString() === this.ctx.userID) ||
-					!this.ctx.loggedIn
-					? undefined
-					: (function () {
-							globalCallback(undefined, formattedEvent);
-					  })();
+				// return (!this.ctx.globalOptions.selfListen && formattedEvent.author.toString() === this.ctx.userID) ||
+				// 	!this.ctx.loggedIn
+				// 	? undefined
+				// 	: globalCallback(undefined, formattedEvent);
+				throw new Error('TODO'); // TODO
 		}
+		return [];
 	}
 
 	resolvePhotoUrl(photoID: string, callback: (err?: Error, url?: string) => void): void {

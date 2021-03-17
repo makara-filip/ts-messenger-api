@@ -6,6 +6,7 @@ import {
 	IncomingEvent,
 	IncomingLogMessageType,
 	IncomingMessage,
+	IncomingMessageReply,
 	PrimitiveObject,
 	Read,
 	ReadReceipt,
@@ -606,19 +607,31 @@ export function formatDeltaMessage(delta: any): IncomingMessage {
 		mentions[m_id[i]] = delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
 	}
 
-	return {
+	const formatted: IncomingMessage = {
 		type: 'message',
-		senderID: parseInt(messageMetadata.actorFbId),
+		senderId: parseInt(messageMetadata.actorFbId),
 		body: delta.body || '',
 		// when one-to-one chat, `otherUserFbId` is used by FB
 		// when group chat, `threadFbId` is used by FB
 		threadId: parseInt(messageMetadata.threadKey.threadFbId || messageMetadata.threadKey.otherUserFbId),
-		messageID: messageMetadata.messageId,
+		messageId: messageMetadata.messageId,
 		attachments: ((delta.attachments as unknown[]) || []).map(att => _formatAttachment(att)),
 		mentions,
 		timestamp: parseInt(messageMetadata.timestamp),
 		isGroup: !!messageMetadata.threadKey.threadFbId
 	};
+	return formatted;
+}
+
+export function formatDeltaReplyMessage(deltaSourceMessage: any, deltaReplyMessage: any): IncomingMessageReply {
+	// since the reply incoming message has very similar structure as regular incoming message,
+	// we can format it using `formatDeltaMessage` function & add some additional properties
+	const formattedReplyMessage: IncomingMessageReply = {
+		...formatDeltaMessage(deltaReplyMessage), // format using another function
+		// and add some additional properties:
+		sourceMessage: formatDeltaMessage(deltaSourceMessage)
+	};
+	return formattedReplyMessage;
 }
 
 export function formatID(id: string): string {

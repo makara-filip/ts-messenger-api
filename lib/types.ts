@@ -111,18 +111,10 @@ export enum OutgoingMessageSendType {
 }
 
 export interface IncomingMessageBase {
-	type:
-		| 'message'
-		| 'event'
-		| 'typ'
-		| 'read'
-		| 'read_receipt'
-		| 'message_reaction'
-		| 'presence'
-		| 'message_unsend'
-		| 'message_reply';
+	type: 'message' | 'event' | 'typ' | 'read' | 'read_receipt' | 'message_reaction' | 'presence' | 'message_unsend';
 	threadId: ThreadID;
 }
+export type AnyIncomingMessage = unknown; // TODO
 
 export type MessageID = string;
 
@@ -135,10 +127,13 @@ export interface IncomingMessage extends IncomingMessageBase {
 	isGroup: boolean;
 	/** An object containing people mentioned/tagged in the message */
 	mentions: { id: string }[];
-	messageID: MessageID;
-	senderID: UserID;
-	// isUnread: boolean;
+	messageId: MessageID;
+	senderId: UserID;
 	timestamp: number;
+}
+
+export interface IncomingMessageReply extends IncomingMessage {
+	sourceMessage: IncomingMessage;
 }
 
 export interface IncomingEvent extends IncomingMessageBase {
@@ -195,19 +190,6 @@ export interface IncomingMessageUnsend extends IncomingMessageBase {
 	messageSenderId: UserID;
 	messageId: MessageID;
 	deletionTimestamp: number;
-}
-
-export interface IncomingMessageReply extends IncomingMessageBase {
-	type: 'message_reply';
-	attachments: AnyAttachment[];
-	body: string;
-	isGroup: boolean;
-	mentions: { id: string }; // FIXME
-	messageID: string;
-	senderID: string;
-	isUnread?: boolean;
-	messageReply?: IncomingMessage;
-	timestamp?: number;
 }
 
 export interface ChangeThreadImage {
