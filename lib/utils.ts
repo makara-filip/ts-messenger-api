@@ -1153,13 +1153,6 @@ export function formatPresence(presence: any, userID: string) {
 	};
 }
 
-export function decodeClientPayload(payload: any) {
-	/*
-	Special function which Client using to "encode" clients JSON payload
-	*/
-	return JSON.parse(String.fromCharCode.apply(null, payload));
-}
-
 export function getAppState(jar: Jar): Cookie[] {
 	return jar
 		.getCookies('https://www.facebook.com')

@@ -176,12 +176,11 @@ export interface ReadReceipt extends IncomingMessageBase {
 
 export interface IncomingMessageReaction extends IncomingMessageBase {
 	type: 'message_reaction';
-	messageID: string;
-	offlineThreadingID?: string;
+	messageId: MessageID;
 	reaction: string;
-	senderID: string;
-	timestamp?: number;
-	userID: string;
+	messageSenderId: UserID;
+	reactionSenderId: UserID;
+	// timestamp: number; // not available
 }
 
 export interface Presence {
@@ -193,10 +192,9 @@ export interface Presence {
 
 export interface IncomingMessageUnsend extends IncomingMessageBase {
 	type: 'message_unsend';
-	senderID: string;
-	messageID: string;
+	messageSenderId: UserID;
+	messageId: MessageID;
 	deletionTimestamp: number;
-	timestamp: number;
 }
 
 export interface IncomingMessageReply extends IncomingMessageBase {
@@ -204,7 +202,7 @@ export interface IncomingMessageReply extends IncomingMessageBase {
 	attachments: AnyAttachment[];
 	body: string;
 	isGroup: boolean;
-	mentions: { id: string };
+	mentions: { id: string }; // FIXME
 	messageID: string;
 	senderID: string;
 	isUnread?: boolean;

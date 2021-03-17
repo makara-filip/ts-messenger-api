@@ -15,7 +15,9 @@ import {
 	Presence,
 	Typ,
 	WebsocketContent,
-	IncomingMessage
+	IncomingMessage,
+	IncomingMessageReaction,
+	IncomingMessageUnsend
 } from './types';
 import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
@@ -329,68 +331,133 @@ export default class Api {
 			return globalCallback(undefined, formattedMessage);
 		}
 		if (v.delta.class == 'ClientPayload') {
-			const clientPayload = utils.decodeClientPayload(v.delta.payload);
-			if (clientPayload && clientPayload.deltas) {
-				for (const i in clientPayload.deltas) {
-					const delta = clientPayload.deltas[i];
-					if (delta.deltaMessageReaction && !!this.ctx.globalOptions.listenEvents) {
-						(function () {
-							globalCallback(undefined, {
-								type: 'message_reaction',
-								threadId: delta.deltaMessageReaction.threadKey.threadFbId
-									? delta.deltaMessageReaction.threadKey.threadFbId
-									: delta.deltaMessageReaction.threadKey.otherUserFbId,
-								messageID: delta.deltaMessageReaction.messageId,
-								reaction: delta.deltaMessageReaction.reaction,
-								senderID: delta.deltaMessageReaction.senderId.toString(),
-								userID: delta.deltaMessageReaction.userId.toString()
-							});
-						})();
-					} else if (delta.deltaRecallMessageData && !!this.ctx.globalOptions.listenEvents) {
-						(function () {
-							globalCallback(undefined, {
-								type: 'message_unsend',
-								threadId: delta.deltaRecallMessageData.threadKey.threadFbId
-									? delta.deltaRecallMessageData.threadKey.threadFbId
-									: delta.deltaRecallMessageData.threadKey.otherUserFbId,
-								messageID: delta.deltaRecallMessageData.messageID,
-								senderID: delta.deltaRecallMessageData.senderID.toString(),
-								deletionTimestamp: delta.deltaRecallMessageData.deletionTimestamp,
-								timestamp: delta.deltaRecallMessageData.timestamp
-							});
-						})();
-					} else if (delta.deltaMessageReply) {
-						//Mention block - #1
-						let mdata =
-							delta.deltaMessageReply.message === undefined
-								? []
-								: delta.deltaMessageReply.message.data === undefined
-								? []
-								: delta.deltaMessageReply.message.data.prng === undefined
-								? []
-								: JSON.parse(delta.deltaMessageReply.message.data.prng);
-						let m_id = mdata.map((u: any) => u.i);
-						let m_offset = mdata.map((u: any) => u.o);
-						let m_length = mdata.map((u: any) => u.l);
+			let clientPayload;
+			try {
+				// if the `delta.payload` property is used, it contains an array
+				// of 8-bit integers which are later converted to string
+				clientPayload = JSON.parse(Buffer.from(v.delta.payload).toString());
+			} catch (error) {
+				return globalCallback({
+					errorText: 'There was an error parsing WS. Contact the dev team about this (error code 935469).',
+					error,
+					data: v
+				});
+			}
+			if (!(clientPayload && clientPayload.deltas)) return;
 
-						const mentions: any = {};
+			for (const payloadDelta of clientPayload.deltas) {
+				if (payloadDelta.deltaMessageReaction && !!this.ctx.globalOptions.listenEvents) {
+					const messageReaction: IncomingMessageReaction = {
+						type: 'message_reaction',
+						threadId: parseInt(
+							payloadDelta.deltaMessageReaction.threadKey.threadFbId ||
+								payloadDelta.deltaMessageReaction.threadKey.otherUserFbId
+						),
+						messageId: payloadDelta.deltaMessageReaction.messageId,
+						reaction: payloadDelta.deltaMessageReaction.reaction,
+						messageSenderId: parseInt(payloadDelta.deltaMessageReaction.senderId),
+						reactionSenderId: parseInt(payloadDelta.deltaMessageReaction.userId)
+					};
+					globalCallback(undefined, messageReaction);
+				} else if (payloadDelta.deltaRecallMessageData && !!this.ctx.globalOptions.listenEvents) {
+					// "unsend message" by FB is called "recall message"
+					const messageUnsend: IncomingMessageUnsend = {
+						type: 'message_unsend',
+						threadId: parseInt(
+							payloadDelta.deltaRecallMessageData.threadKey.threadFbId ||
+								payloadDelta.deltaRecallMessageData.threadKey.otherUserFbId
+						),
+						messageId: payloadDelta.deltaRecallMessageData.messageID,
+						messageSenderId: parseInt(payloadDelta.deltaRecallMessageData.senderID),
+						deletionTimestamp: parseInt(payloadDelta.deltaRecallMessageData.deletionTimestamp)
+					};
+					globalCallback(undefined, messageUnsend);
+				} else if (payloadDelta.deltaMessageReply) {
+					//Mention block - #1
+					let mdata =
+						payloadDelta.deltaMessageReply.message === undefined
+							? []
+							: payloadDelta.deltaMessageReply.message.data === undefined
+							? []
+							: payloadDelta.deltaMessageReply.message.data.prng === undefined
+							? []
+							: JSON.parse(payloadDelta.deltaMessageReply.message.data.prng);
+					let m_id = mdata.map((u: any) => u.i);
+					let m_offset = mdata.map((u: any) => u.o);
+					let m_length = mdata.map((u: any) => u.l);
+
+					const mentions: any = {};
+
+					for (let i = 0; i < m_id.length; i++) {
+						mentions[m_id[i]] = (payloadDelta.deltaMessageReply.message.body || '').substring(
+							m_offset[i],
+							m_offset[i] + m_length[i]
+						);
+					}
+					//Mention block - 1#
+					const callbackToReturn: IncomingMessageReply = {
+						type: 'message_reply',
+						threadId: (payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
+							? payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
+							: payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.otherUserFbId
+						).toString(),
+						messageID: payloadDelta.deltaMessageReply.message.messageMetadata.messageId,
+						senderID: payloadDelta.deltaMessageReply.message.messageMetadata.actorFbId.toString(),
+						attachments: payloadDelta.deltaMessageReply.message.attachments
+							.map(function (att: any) {
+								const mercury = JSON.parse(att.mercuryJSON);
+								Object.assign(att, mercury);
+								return att;
+							})
+							.map((att: any) => {
+								let x;
+								try {
+									x = utils._formatAttachment(att);
+								} catch (ex) {
+									x = att;
+									x.error = ex;
+									x.type = 'unknown';
+								}
+								return x;
+							}),
+						body: payloadDelta.deltaMessageReply.message.body || '',
+						isGroup: !!payloadDelta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId,
+						mentions: mentions,
+						timestamp: payloadDelta.deltaMessageReply.message.messageMetadata.timestamp
+					};
+
+					if (payloadDelta.deltaMessageReply.repliedToMessage) {
+						//Mention block - #2
+						mdata =
+							payloadDelta.deltaMessageReply.repliedToMessage === undefined
+								? []
+								: payloadDelta.deltaMessageReply.repliedToMessage.data === undefined
+								? []
+								: payloadDelta.deltaMessageReply.repliedToMessage.data.prng === undefined
+								? []
+								: JSON.parse(payloadDelta.deltaMessageReply.repliedToMessage.data.prng);
+						m_id = mdata.map((u: any) => u.i);
+						m_offset = mdata.map((u: any) => u.o);
+						m_length = mdata.map((u: any) => u.l);
+
+						const rmentions: any = {};
 
 						for (let i = 0; i < m_id.length; i++) {
-							mentions[m_id[i]] = (delta.deltaMessageReply.message.body || '').substring(
+							rmentions[m_id[i]] = (payloadDelta.deltaMessageReply.repliedToMessage.body || '').substring(
 								m_offset[i],
 								m_offset[i] + m_length[i]
 							);
 						}
-						//Mention block - 1#
-						const callbackToReturn: IncomingMessageReply = {
-							type: 'message_reply',
-							threadId: (delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
-								? delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId
-								: delta.deltaMessageReply.message.messageMetadata.threadKey.otherUserFbId
+						//Mention block - 2#
+						callbackToReturn.messageReply = {
+							type: 'message',
+							threadId: (payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
+								? payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
+								: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.otherUserFbId
 							).toString(),
-							messageID: delta.deltaMessageReply.message.messageMetadata.messageId,
-							senderID: delta.deltaMessageReply.message.messageMetadata.actorFbId.toString(),
-							attachments: delta.deltaMessageReply.message.attachments
+							messageID: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.messageId,
+							senderID: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.actorFbId.toString(),
+							attachments: payloadDelta.deltaMessageReply.repliedToMessage.attachments
 								.map(function (att: any) {
 									const mercury = JSON.parse(att.mercuryJSON);
 									Object.assign(att, mercury);
@@ -407,84 +474,30 @@ export default class Api {
 									}
 									return x;
 								}),
-							body: delta.deltaMessageReply.message.body || '',
-							isGroup: !!delta.deltaMessageReply.message.messageMetadata.threadKey.threadFbId,
-							mentions: mentions,
-							timestamp: delta.deltaMessageReply.message.messageMetadata.timestamp
+							body: payloadDelta.deltaMessageReply.repliedToMessage.body || '',
+							isGroup: !!payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId,
+							mentions: rmentions,
+							timestamp: payloadDelta.deltaMessageReply.repliedToMessage.messageMetadata.timestamp
 						};
-
-						if (delta.deltaMessageReply.repliedToMessage) {
-							//Mention block - #2
-							mdata =
-								delta.deltaMessageReply.repliedToMessage === undefined
-									? []
-									: delta.deltaMessageReply.repliedToMessage.data === undefined
-									? []
-									: delta.deltaMessageReply.repliedToMessage.data.prng === undefined
-									? []
-									: JSON.parse(delta.deltaMessageReply.repliedToMessage.data.prng);
-							m_id = mdata.map((u: any) => u.i);
-							m_offset = mdata.map((u: any) => u.o);
-							m_length = mdata.map((u: any) => u.l);
-
-							const rmentions: any = {};
-
-							for (let i = 0; i < m_id.length; i++) {
-								rmentions[m_id[i]] = (delta.deltaMessageReply.repliedToMessage.body || '').substring(
-									m_offset[i],
-									m_offset[i] + m_length[i]
-								);
-							}
-							//Mention block - 2#
-							callbackToReturn.messageReply = {
-								type: 'message',
-								threadId: (delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
-									? delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId
-									: delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.otherUserFbId
-								).toString(),
-								messageID: delta.deltaMessageReply.repliedToMessage.messageMetadata.messageId,
-								senderID: delta.deltaMessageReply.repliedToMessage.messageMetadata.actorFbId.toString(),
-								attachments: delta.deltaMessageReply.repliedToMessage.attachments
-									.map(function (att: any) {
-										const mercury = JSON.parse(att.mercuryJSON);
-										Object.assign(att, mercury);
-										return att;
-									})
-									.map((att: any) => {
-										let x;
-										try {
-											x = utils._formatAttachment(att);
-										} catch (ex) {
-											x = att;
-											x.error = ex;
-											x.type = 'unknown';
-										}
-										return x;
-									}),
-								body: delta.deltaMessageReply.repliedToMessage.body || '',
-								isGroup: !!delta.deltaMessageReply.repliedToMessage.messageMetadata.threadKey.threadFbId,
-								mentions: rmentions,
-								timestamp: delta.deltaMessageReply.repliedToMessage.messageMetadata.timestamp
-							};
-						}
-
-						if (this.ctx.globalOptions.autoMarkDelivery) {
-							// this._markDelivery(callbackToReturn.threadID, callbackToReturn.messageID);
-						}
-
-						return !this.ctx.globalOptions.selfListen && callbackToReturn.senderID === this.ctx.userID
-							? undefined
-							: (function () {
-									globalCallback(undefined, callbackToReturn);
-							  })();
 					}
+
+					if (this.ctx.globalOptions.autoMarkDelivery) {
+						// this._markDelivery(callbackToReturn.threadID, callbackToReturn.messageID);
+					}
+
+					return !this.ctx.globalOptions.selfListen && callbackToReturn.senderID === this.ctx.userID
+						? undefined
+						: (function () {
+								globalCallback(undefined, callbackToReturn);
+						  })();
 				}
-				return;
 			}
+			return;
 		}
 
 		if (v.delta.class !== 'NewMessage' && !this.ctx.globalOptions.listenEvents) return;
 
+		// TODO: v.delta.class == 'DeliveryReceipt'
 		switch (v.delta.class) {
 			case 'ReadReceipt':
 				let fmtMsg;
