@@ -8,6 +8,7 @@ import {
 	IncomingEventType,
 	IncomingMessage,
 	IncomingMessageReply,
+	IncomingMessageType,
 	PrimitiveObject,
 	ReadReceipt,
 	RequestForm
@@ -608,7 +609,7 @@ export function formatDeltaMessage(delta: any): IncomingMessage {
 	}
 
 	const formatted: IncomingMessage = {
-		type: 'message',
+		type: IncomingMessageType.MessageRegular,
 		senderId: parseInt(messageMetadata.actorFbId),
 		body: delta.body || '',
 		// when one-to-one chat, `otherUserFbId` is used by FB
@@ -626,12 +627,13 @@ export function formatDeltaMessage(delta: any): IncomingMessage {
 export function formatDeltaReplyMessage(deltaSourceMessage: any, deltaReplyMessage: any): IncomingMessageReply {
 	// since the reply incoming message has very similar structure as regular incoming message,
 	// we can format it using `formatDeltaMessage` function & add some additional properties
-	const formattedReplyMessage: IncomingMessageReply = {
+	const formattedReplyMessage: any = {
 		...formatDeltaMessage(deltaReplyMessage), // format using another function
 		// and add some additional properties:
 		sourceMessage: formatDeltaMessage(deltaSourceMessage)
 	};
-	return formattedReplyMessage;
+	formattedReplyMessage.type = IncomingMessageType.MessageReply;
+	return formattedReplyMessage as IncomingMessageReply;
 }
 
 export function formatID(id: string): string {
@@ -778,7 +780,7 @@ export function formatDeltaEvent(delta: any): IncomingEvent {
 	}
 
 	return {
-		type: 'event',
+		type: IncomingMessageType.ThreadEvent,
 		threadId: parseInt(delta.messageMetadata.threadKey.threadFbId || delta.messageMetadata.threadKey.otherUserFbId),
 		senderId: parseInt(delta.messageMetadata.actorFbId),
 		body: delta.messageMetadata.adminText,
@@ -790,7 +792,7 @@ export function formatDeltaEvent(delta: any): IncomingEvent {
 
 export function formatDeltaDeliveryReceipt(delta: any): DeliveryReceipt {
 	return {
-		type: 'delivery_receipt',
+		type: IncomingMessageType.DeliveryReceipt,
 		timestamp: parseInt(delta.deliveredWatermarkTimestampMs),
 		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId),
 		recipient: parseInt(delta.actorFbId || delta.threadKey.otherUserFbId),
@@ -800,7 +802,7 @@ export function formatDeltaDeliveryReceipt(delta: any): DeliveryReceipt {
 
 export function formatDeltaReadReceipt(delta: any): ReadReceipt {
 	return {
-		type: 'read_receipt',
+		type: IncomingMessageType.ReadReceipt,
 		reader: parseInt(delta.actorFbId || delta.threadKey.otherUserFbId),
 		timestamp: parseInt(delta.actionTimestampMs),
 		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId)

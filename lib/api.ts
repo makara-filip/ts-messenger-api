@@ -20,7 +20,8 @@ import {
 	AnyIncomingMessage,
 	DeliveryReceipt,
 	ReadReceipt,
-	IncomingEvent
+	IncomingEvent,
+	IncomingMessageType
 } from './types';
 import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
@@ -205,7 +206,7 @@ export default class Api {
 						new Error('There was an unknown WS error. Contact the dev team about this (error code 935466).')
 					);
 				const typ: Typ = {
-					type: 'typ',
+					type: IncomingMessageType.TypingIndicator,
 					isTyping: !!jsonMessage.state,
 					senderId: jsonMessage.sender_fbid as number,
 					threadId: (jsonMessage.sender_fbid || parseInt(jsonMessage.thread)) as number
@@ -219,7 +220,7 @@ export default class Api {
 					);
 				for (const data of jsonMessage.list) {
 					const presence: Presence = {
-						type: 'presence',
+						type: IncomingMessageType.UserPresence,
 						userID: data.u,
 						timestamp: data.l * 1000, // timestamp to milliseconds
 						status: data.p
@@ -350,7 +351,7 @@ export default class Api {
 			for (const payloadDelta of clientPayload.deltas) {
 				if (payloadDelta.deltaMessageReaction && !!this.ctx.globalOptions.listenEvents) {
 					const messageReaction: IncomingMessageReaction = {
-						type: 'message_reaction',
+						type: IncomingMessageType.MessageReaction,
 						threadId: parseInt(
 							payloadDelta.deltaMessageReaction.threadKey.threadFbId ||
 								payloadDelta.deltaMessageReaction.threadKey.otherUserFbId
@@ -364,7 +365,7 @@ export default class Api {
 				} else if (payloadDelta.deltaRecallMessageData && !!this.ctx.globalOptions.listenEvents) {
 					// "unsend message" by FB is called "recall message"
 					const messageUnsend: IncomingMessageUnsend = {
-						type: 'message_unsend',
+						type: IncomingMessageType.MessageUnsend,
 						threadId: parseInt(
 							payloadDelta.deltaRecallMessageData.threadKey.threadFbId ||
 								payloadDelta.deltaRecallMessageData.threadKey.otherUserFbId

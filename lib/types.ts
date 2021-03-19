@@ -110,24 +110,29 @@ export enum OutgoingMessageSendType {
 	ForwardMessage = 5
 }
 
-export interface IncomingMessageBase {
-	type:
-		| 'message'
-		| 'event'
-		| 'typ'
-		| 'delivery_receipt'
-		| 'read_receipt'
-		| 'message_reaction'
-		| 'presence'
-		| 'message_unsend';
-	threadId: ThreadID;
-}
-export type AnyIncomingMessage = unknown; // TODO
-
+// ============= Incoming messages & events =============
 export type MessageID = string;
 
+export interface IncomingMessageBase {
+	type: IncomingMessageType;
+	threadId: ThreadID;
+}
+export enum IncomingMessageType {
+	MessageRegular,
+	MessageReply,
+	MessageUnsend,
+	MessageReaction,
+	ThreadEvent,
+	TypingIndicator,
+	DeliveryReceipt,
+	ReadReceipt,
+	UserPresence
+}
+
+export type AnyIncomingMessage = unknown; // TODO: put here the union type of all following types
+
 export interface IncomingMessage extends IncomingMessageBase {
-	type: 'message';
+	type: IncomingMessageType.MessageRegular;
 	attachments: AnyAttachment[];
 	/** The string corresponding to the message that was just received */
 	body: string;
@@ -144,8 +149,24 @@ export interface IncomingMessageReply extends IncomingMessage {
 	sourceMessage: IncomingMessage;
 }
 
+export interface IncomingMessageUnsend extends IncomingMessageBase {
+	type: IncomingMessageType.MessageUnsend;
+	messageSenderId: UserID;
+	messageId: MessageID;
+	deletionTimestamp: number;
+}
+
+export interface IncomingMessageReaction extends IncomingMessageBase {
+	type: IncomingMessageType.MessageReaction;
+	messageId: MessageID;
+	reaction: string;
+	messageSenderId: UserID;
+	reactionSenderId: UserID;
+	// timestamp: number; // not available
+}
+
 export interface IncomingEvent extends IncomingMessageBase {
-	type: 'event';
+	type: IncomingMessageType.ThreadEvent;
 	senderId: UserID;
 	body: string;
 	timestamp: number;
@@ -164,62 +185,31 @@ export enum IncomingEventType {
 }
 
 export interface Typ extends IncomingMessageBase {
-	type: 'typ';
+	type: IncomingMessageType.TypingIndicator;
 	senderId: UserID;
 	isTyping: boolean;
 }
 
 export interface DeliveryReceipt extends IncomingMessageBase {
-	type: 'delivery_receipt';
+	type: IncomingMessageType.DeliveryReceipt;
 	timestamp: number;
 	recipient: UserID;
 	deliveredMessageIds: MessageID[];
 }
 
 export interface ReadReceipt extends IncomingMessageBase {
-	type: 'read_receipt';
+	type: IncomingMessageType.ReadReceipt;
 	timestamp: number;
 	reader: UserID;
 }
 
-export interface IncomingMessageReaction extends IncomingMessageBase {
-	type: 'message_reaction';
-	messageId: MessageID;
-	reaction: string;
-	messageSenderId: UserID;
-	reactionSenderId: UserID;
-	// timestamp: number; // not available
-}
-
 export interface Presence {
-	type: 'presence';
+	type: IncomingMessageType.UserPresence;
 	status: UserOnlineStatus;
 	timestamp: number;
 	userID: UserID;
 }
-
-export interface IncomingMessageUnsend extends IncomingMessageBase {
-	type: 'message_unsend';
-	messageSenderId: UserID;
-	messageId: MessageID;
-	deletionTimestamp: number;
-}
-
-export interface ChangeThreadImage {
-	type: 'change_thread_image';
-	threadID: string;
-	snippet: any;
-	timestamp: number;
-	author: number;
-	image: {
-		attachmentID: string;
-		width: number;
-		height: number;
-		url: string;
-	};
-}
-
-enum UserOnlineStatus {
+export enum UserOnlineStatus {
 	/** away for 2 minutes */
 	IDLE = 0,
 	ONLINE = 2
