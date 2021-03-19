@@ -146,19 +146,22 @@ export interface IncomingMessageReply extends IncomingMessage {
 
 export interface IncomingEvent extends IncomingMessageBase {
 	type: 'event';
-	author: string;
-	logMessageBody: string;
-	logMessageData: string;
-	logMessageType?: IncomingLogMessageType;
+	senderId: UserID;
+	body: string;
+	timestamp: number;
+	eventType?: IncomingEventType;
+	data: unknown; // TODO: specify the type
 }
 
-export type IncomingLogMessageType =
-	| 'log:subscribe'
-	| 'log:unsubscribe'
-	| 'log:thread-name'
-	| 'log:thread-color'
-	| 'log:thread-icon'
-	| 'log:user-nickname';
+export enum IncomingEventType {
+	ChangeThreadImage,
+	ChangeThreadName,
+	ChangeThreadEmoji,
+	ChangeThreadColorTheme,
+	ChangeNickname,
+	RemovedParticipant,
+	AddedParticipants
+}
 
 export interface Typ extends IncomingMessageBase {
 	type: 'typ';

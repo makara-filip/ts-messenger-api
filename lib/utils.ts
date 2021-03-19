@@ -5,7 +5,7 @@ import {
 	DeliveryReceipt,
 	Dfs,
 	IncomingEvent,
-	IncomingLogMessageType,
+	IncomingEventType,
 	IncomingMessage,
 	IncomingMessageReply,
 	PrimitiveObject,
@@ -739,57 +739,52 @@ export function formatHistoryMessage(
 	}
 }
 
-// Get a more readable message type for AdminTextMessages
-export function getAdminTextMessageType(type: string): IncomingLogMessageType {
+export function getAdminTextMessageType(type: string): IncomingEventType | undefined {
 	switch (type) {
 		case 'change_thread_theme':
-			return 'log:thread-color';
+			return IncomingEventType.ChangeThreadColorTheme;
 		case 'change_thread_nickname':
-			return 'log:user-nickname';
+			return IncomingEventType.ChangeNickname;
 		case 'change_thread_icon':
-			return 'log:thread-icon';
+			return IncomingEventType.ChangeThreadImage;
 		default:
-			return type as IncomingLogMessageType;
+			return undefined;
 	}
 }
 
-export function formatDeltaEvent(m: any): IncomingEvent {
-	let logMessageType: IncomingLogMessageType | undefined = undefined;
-	let logMessageData;
+export function formatDeltaEvent(delta: any): IncomingEvent {
+	let eventType: IncomingEventType | undefined;
+	let additionalData = {};
 
-	// log:thread-color => {theme_color}
-	// log:user-nickname => {participant_id, nickname}
-	// log:thread-icon => {thread_icon}
-	// log:thread-name => {name}
-	// log:subscribe => {addedParticipants - [Array]}
-	// log:unsubscribe => {leftParticipantFbId}
-
-	switch (m.class) {
+	switch (delta.class) {
 		case 'AdminTextMessage':
-			logMessageData = m.untypedData;
-			logMessageType = getAdminTextMessageType(m.type);
+			additionalData = delta.untypedData;
+			eventType = getAdminTextMessageType(delta.type);
 			break;
 		case 'ThreadName':
-			logMessageType = 'log:thread-name';
-			logMessageData = { name: m.name };
+			eventType = IncomingEventType.ChangeThreadName;
+			additionalData = { name: delta.name };
 			break;
 		case 'ParticipantsAddedToGroupThread':
-			logMessageType = 'log:subscribe';
-			logMessageData = { addedParticipants: m.addedParticipants };
+			eventType = IncomingEventType.AddedParticipants;
+			additionalData = { addedParticipants: delta.addedParticipants };
 			break;
 		case 'ParticipantLeftGroupThread':
-			logMessageType = 'log:unsubscribe';
-			logMessageData = { leftParticipantFbId: m.leftParticipantFbId };
+			eventType = IncomingEventType.RemovedParticipant;
+			additionalData = { leftParticipantFbId: delta.leftParticipantFbId };
+			break;
+		default:
 			break;
 	}
 
 	return {
 		type: 'event',
-		threadId: m.messageMetadata.threadKey.threadFbId || m.messageMetadata.threadKey.otherUserFbId,
-		logMessageType: logMessageType,
-		logMessageData: logMessageData,
-		logMessageBody: m.messageMetadata.adminText,
-		author: m.messageMetadata.actorFbId
+		threadId: parseInt(delta.messageMetadata.threadKey.threadFbId || delta.messageMetadata.threadKey.otherUserFbId),
+		senderId: parseInt(delta.messageMetadata.actorFbId),
+		body: delta.messageMetadata.adminText,
+		timestamp: parseInt(delta.messageMetadata.timestamp),
+		eventType,
+		data: additionalData
 	};
 }
 

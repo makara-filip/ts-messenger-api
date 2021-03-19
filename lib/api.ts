@@ -17,7 +17,10 @@ import {
 	IncomingMessage,
 	IncomingMessageReaction,
 	IncomingMessageUnsend,
-	AnyIncomingMessage
+	AnyIncomingMessage,
+	DeliveryReceipt,
+	ReadReceipt,
+	IncomingEvent
 } from './types';
 import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
@@ -398,7 +401,7 @@ export default class Api {
 
 		switch (v.delta.class) {
 			case 'DeliveryReceipt':
-				let formattedDelivery;
+				let formattedDelivery: DeliveryReceipt;
 				try {
 					formattedDelivery = utils.formatDeltaDeliveryReceipt(v.delta);
 				} catch (error) {
@@ -409,7 +412,7 @@ export default class Api {
 				if (!formattedDelivery) throw new Error('Error code 935471-b');
 				return [formattedDelivery];
 			case 'ReadReceipt':
-				let formattedMessage;
+				let formattedMessage: ReadReceipt;
 				try {
 					formattedMessage = utils.formatDeltaReadReceipt(v.delta);
 				} catch (error) {
@@ -420,114 +423,21 @@ export default class Api {
 				if (!formattedMessage) throw new Error('Error code 935472-b');
 				return [formattedMessage];
 			case 'AdminTextMessage':
-				switch (v.delta.type) {
-					case 'change_thread_theme':
-					case 'change_thread_nickname':
-					case 'change_thread_icon':
-						break;
-					case 'group_poll':
-						let fmtMsg;
-						try {
-							fmtMsg = utils.formatDeltaEvent(v.delta);
-						} catch (err) {
-							throw new Error('TODO'); // TODO
-							// return globalCallback({
-							// 	error:
-							// 		'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-							// 	detail: err,
-							// 	res: v.delta,
-							// 	type: 'parse_error'
-							// });
-						}
-						return [fmtMsg];
-					default:
-						return [];
-				}
-				break;
-			//For group images
-			case 'ForcedFetch':
-				if (!v.delta.threadKey) return [];
-				const mid = v.delta.messageId;
-				const tid = v.delta.threadKey.threadFbId;
-				if (mid && tid) {
-					const form = {
-						av: this.ctx.globalOptions.pageID,
-						queries: JSON.stringify({
-							o0: {
-								//This doc_id is valid as of ? (prob January 18, 2020)
-								doc_id: '1768656253222505',
-								query_params: {
-									thread_and_message_id: {
-										thread_id: tid.toString(),
-										message_id: mid.toString()
-									}
-								}
-							}
-						})
-					};
-
-					this._defaultFuncs
-						.post('https://www.facebook.com/api/graphqlbatch/', this.ctx.jar, form)
-						.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-						.then(resData => {
-							if (resData[resData.length - 1].error_results > 0) {
-								throw resData[0].o0.errors;
-							}
-
-							if (resData[resData.length - 1].successful_results === 0) {
-								throw { error: 'forcedFetch: there was no successful_results', res: resData };
-							}
-
-							const fetchData = resData[0].o0.data.message;
-							if (fetchData && fetchData.__typename === 'ThreadImageMessage') {
-								(!this.ctx.globalOptions.selfListen && fetchData.message_sender.id.toString() === this.ctx.userID) ||
-								!this.ctx.loggedIn
-									? undefined
-									: (function () {
-											throw new Error('TODO'); // TODO
-											// globalCallback(undefined, {
-											// 	type: 'change_thread_image',
-											// 	threadID: utils.formatID(tid.toString()),
-											// 	snippet: fetchData.snippet,
-											// 	timestamp: fetchData.timestamp_precise,
-											// 	author: fetchData.message_sender.id,
-											// 	image: {
-											// 		attachmentID:
-											// 			fetchData.image_with_metadata && fetchData.image_with_metadata.legacy_attachment_id,
-											// 		width: fetchData.image_with_metadata && fetchData.image_with_metadata.original_dimensions.x,
-											// 		height: fetchData.image_with_metadata && fetchData.image_with_metadata.original_dimensions.y,
-											// 		url: fetchData.image_with_metadata && fetchData.image_with_metadata.preview.uri
-											// 	}
-											// });
-									  })();
-							}
-						})
-						.catch(err => {
-							log.error('forcedFetch', err);
-						});
-				}
-				break;
 			case 'ThreadName':
 			case 'ParticipantsAddedToGroupThread':
 			case 'ParticipantLeftGroupThread':
-				let formattedEvent;
+				let formattedAdminText: IncomingEvent;
 				try {
-					formattedEvent = utils.formatDeltaEvent(v.delta);
-				} catch (err) {
-					throw new Error('TODO'); // TODO
-					// return globalCallback({
-					// 	error:
-					// 		'Problem parsing message object. Please open an issue at https://github.com/Schmavery/facebook-chat-api/issues.',
-					// 	detail: err,
-					// 	res: v.delta,
-					// 	type: 'parse_error'
-					// });
+					formattedAdminText = utils.formatDeltaEvent(v.delta);
+				} catch (error) {
+					throw new Error(
+						`There was an unknown WS error. Contact the dev team about this (error code 935473). Original error: ${error}. Delta: ${v.delta}`
+					);
 				}
-				// return (!this.ctx.globalOptions.selfListen && formattedEvent.author.toString() === this.ctx.userID) ||
-				// 	!this.ctx.loggedIn
-				// 	? undefined
-				// 	: globalCallback(undefined, formattedEvent);
-				throw new Error('TODO'); // TODO
+				if (!formattedAdminText) throw new Error('Error code 935473-b');
+				return [formattedAdminText];
+			default:
+				break;
 		}
 		return [];
 	}
