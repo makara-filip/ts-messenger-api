@@ -208,8 +208,8 @@ export default class Api {
 				const typ: Typ = {
 					type: IncomingMessageType.TypingIndicator,
 					isTyping: !!jsonMessage.state,
-					senderId: jsonMessage.sender_fbid as number,
-					threadId: (jsonMessage.sender_fbid || parseInt(jsonMessage.thread)) as number
+					senderId: parseInt(jsonMessage.sender_fbid),
+					threadId: parseInt(jsonMessage.sender_fbid || jsonMessage.thread)
 				};
 				mqttEE.emit('typ', typ);
 			} else if (topic === '/orca_presence' && this.ctx.globalOptions.updatePresence) {

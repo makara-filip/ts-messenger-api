@@ -9,7 +9,8 @@ import {
 	IncomingMessageBase,
 	MessageID,
 	IncomingMessageReply,
-	Typ
+	Typ,
+	IncomingMessageType
 } from '../dist/lib/types';
 import { EventEmitter } from 'events';
 import { sentence } from 'txtgen';
@@ -74,9 +75,9 @@ describe('Fundamental API functioning', function () {
 		let isDone = false;
 
 		const listener = (event: IncomingMessageBase) => {
-			if (!indicatorWasSent || event.type !== 'typ' || isDone) return;
+			if (!indicatorWasSent || event.type !== IncomingMessageType.TypingIndicator || isDone) return;
 			const typing = event as Typ;
-			if (typing.from != api1.ctx.userID) return;
+			if (typing.senderId != api1.ctx.userID) return;
 
 			if (!indicatorReceivedTyping) {
 				// the first indication - should be "true"
@@ -105,16 +106,16 @@ describe('Fundamental API functioning', function () {
 
 		// setup the event listener
 		const listener = (event: IncomingMessageBase) => {
-			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
-				expect((event as IncomingMessage).body, 'incoming text message did not contain "body" property').to.exist;
-				expect((event as IncomingMessage).body, 'incoming text message did not contain expected content').to.include(
-					messageBody
-				);
-				done();
-				messageId = (event as IncomingMessage).messageID; // save the message ID for later use
-				messageWasReceived = true;
-				emitter.removeListener('message', listener);
-			}
+			if (!(messageWasSent && event.type === IncomingMessageType.MessageRegular && !messageWasReceived)) return;
+
+			expect((event as IncomingMessage).body, 'incoming text message did not contain "body" property').to.exist;
+			expect((event as IncomingMessage).body, 'incoming text message did not contain expected content').to.include(
+				messageBody
+			);
+			done();
+			messageId = (event as IncomingMessage).messageId; // save the message ID for later use
+			messageWasReceived = true;
+			emitter.removeListener('message', listener);
 		};
 		emitter.addListener('message', listener);
 
@@ -130,16 +131,15 @@ describe('Fundamental API functioning', function () {
 
 		// setup the event listener
 		const listener = (event: IncomingMessageBase) => {
-			if (messageWasSent && event.type === 'message_reply' && !messageWasReceived) {
-				expect((event as IncomingMessageReply).body, 'incoming text message did not contain "body" property').to.exist;
-				expect(
-					(event as IncomingMessageReply).body,
-					'incoming text message did not contain expected content'
-				).to.include(messageBody);
-				done();
-				messageWasReceived = true;
-				emitter.removeListener('message', listener);
-			}
+			if (!(messageWasSent && event.type === IncomingMessageType.MessageReply && !messageWasReceived)) return;
+
+			expect((event as IncomingMessageReply).body, 'incoming text message did not contain "body" property').to.exist;
+			expect((event as IncomingMessageReply).body, 'incoming text message did not contain expected content').to.include(
+				messageBody
+			);
+			done();
+			messageWasReceived = true;
+			emitter.removeListener('message', listener);
 		};
 		emitter.addListener('message', listener);
 
@@ -154,15 +154,15 @@ describe('Fundamental API functioning', function () {
 		let messageWasReceived = false;
 
 		// setup the event listener
-		const listener = (event: any) => {
-			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
-				expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
-					.exist;
-				expect((event as IncomingMessage).attachments).to.be.not.empty;
-				done();
-				messageWasReceived = true;
-				emitter.removeListener('message', listener);
-			}
+		const listener = (event: IncomingMessageBase) => {
+			if (!(messageWasSent && event.type === IncomingMessageType.MessageRegular && !messageWasReceived)) return;
+
+			expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
+				.exist;
+			expect((event as IncomingMessage).attachments).to.be.not.empty;
+			done();
+			messageWasReceived = true;
+			emitter.removeListener('message', listener);
 		};
 		emitter.addListener('message', listener);
 
@@ -180,15 +180,15 @@ describe('Fundamental API functioning', function () {
 		let messageWasReceived = false;
 
 		// setup the event listener
-		const listener = (event: any) => {
-			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
-				expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
-					.exist;
-				expect((event as IncomingMessage).attachments).to.be.not.empty;
-				done();
-				messageWasReceived = true;
-				emitter.removeListener('message', listener);
-			}
+		const listener = (event: IncomingMessageBase) => {
+			if (!(messageWasSent && event.type === IncomingMessageType.MessageRegular && !messageWasReceived)) return;
+
+			expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
+				.exist;
+			expect((event as IncomingMessage).attachments).to.be.not.empty;
+			done();
+			messageWasReceived = true;
+			emitter.removeListener('message', listener);
 		};
 		emitter.addListener('message', listener);
 
@@ -206,15 +206,15 @@ describe('Fundamental API functioning', function () {
 		let messageWasReceived = false;
 
 		// setup the event listener
-		const listener = (event: any) => {
-			if (messageWasSent && event.type === 'message' && !messageWasReceived) {
-				expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
-					.exist;
-				expect((event as IncomingMessage).attachments).to.be.not.empty;
-				done();
-				messageWasReceived = true;
-				emitter.removeListener('message', listener);
-			}
+		const listener = (event: IncomingMessageBase) => {
+			if (!(messageWasSent && event.type === IncomingMessageType.MessageRegular && !messageWasReceived)) return;
+
+			expect((event as IncomingMessage).attachments, 'incoming message did not contain "attachments" property').to
+				.exist;
+			expect((event as IncomingMessage).attachments).to.be.not.empty;
+			done();
+			messageWasReceived = true;
+			emitter.removeListener('message', listener);
 		};
 		emitter.addListener('message', listener);
 
