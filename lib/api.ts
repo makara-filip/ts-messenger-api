@@ -400,13 +400,13 @@ export default class Api {
 			case 'DeliveryReceipt':
 				let formattedDelivery;
 				try {
-					formattedDelivery = utils.formatDeltaReadReceipt(v.delta);
+					formattedDelivery = utils.formatDeltaDeliveryReceipt(v.delta);
 				} catch (error) {
 					throw new Error(
 						`There was an unknown WS error. Contact the dev team about this (error code 935471). Original error: ${error}. Delta: ${v.delta}`
 					);
 				}
-				if (!formattedDelivery) throw new Error('Error code 935472-1');
+				if (!formattedDelivery) throw new Error('Error code 935471-b');
 				return [formattedDelivery];
 			case 'ReadReceipt':
 				let formattedMessage;
@@ -530,31 +530,6 @@ export default class Api {
 				throw new Error('TODO'); // TODO
 		}
 		return [];
-	}
-
-	resolvePhotoUrl(photoID: string, callback: (err?: Error, url?: string) => void): void {
-		if (!callback) {
-			throw { error: 'resolvePhotoUrl: need callback' };
-		}
-
-		this._defaultFuncs
-			.get('https://www.facebook.com/mercury/attachments/photo', this.ctx.jar, {
-				photo_id: photoID
-			})
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(resData => {
-				if (resData.error) {
-					throw resData;
-				}
-
-				const photoUrl = resData.jsmods.require[0][3][0];
-
-				return callback(undefined, photoUrl);
-			})
-			.catch(err => {
-				log.error('resolvePhotoUrl', err);
-				return callback(err);
-			});
 	}
 
 	async markAsRead(threadId: ThreadID): Promise<void> {
