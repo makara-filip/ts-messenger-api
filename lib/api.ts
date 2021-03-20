@@ -7,22 +7,13 @@ import {
 	AppState,
 	Dfs,
 	MessageID,
-	IncomingMessageReply,
 	MqttQueue,
 	OutgoingMessage,
 	OutgoingMessageSendType,
-	Presence,
-	Typ,
-	WebsocketContent,
-	IncomingMessage,
-	IncomingMessageReaction,
-	IncomingMessageUnsend,
-	AnyIncomingMessage,
-	DeliveryReceipt,
-	ReadReceipt,
-	IncomingEvent,
-	IncomingMessageType
+	WebsocketContent
 } from './types';
+import { parseDelta } from './formatting/incomingMessageFormatters';
+import { Presence, Typ, IncomingMessageType } from './types/incomingMessages';
 import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
 import * as utils from './utils';
 import * as formatters from './formatters';
@@ -191,9 +182,10 @@ export default class Api {
 
 				for (const i in jsonMessage.deltas) {
 					const delta = jsonMessage.deltas[i];
-					let parsed = [];
+					let parsed = []; // array, because 1 delta can possibly contain multiple events
 					try {
-						parsed = this._parseDelta({ delta });
+						// all data are formatted into ts-messenger-api ecosystem in this function
+						parsed = parseDelta(delta, this);
 					} catch (error) {
 						return mqttEE.emit('error', error);
 					}
@@ -313,134 +305,6 @@ export default class Api {
 				err ? reject(err) : resolve()
 			);
 		});
-	}
-
-	private _parseDelta(v: { delta: any }): AnyIncomingMessage[] {
-		if (v.delta.class === 'NewMessage') {
-			let formattedMessage: IncomingMessage;
-			try {
-				formattedMessage = utils.formatDeltaMessage(v.delta);
-			} catch (error) {
-				throw new Error(
-					`There was an unknown WS error. Contact the dev team about this (error code 935468). Original error: ${error}. Delta: ${v.delta}`
-				);
-			}
-			if (!formattedMessage) throw new Error('Error code 935468-b');
-
-			if (this.ctx.globalOptions.autoMarkDelivery) {
-				// this._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
-			}
-			if (!this.ctx.globalOptions.selfListen && formattedMessage.senderId == this.ctx.userID) return [];
-			return [formattedMessage];
-		}
-		if (v.delta.class == 'ClientPayload') {
-			let clientPayload;
-			try {
-				// if the `delta.payload` property is used, it contains an array
-				// of 8-bit integers which are later converted to string
-				clientPayload = JSON.parse(Buffer.from(v.delta.payload).toString());
-			} catch (error) {
-				throw new Error(
-					`There was an error parsing WS. Contact the dev team about this (error code 935469). Original error: ${error}. Delta: ${v.delta}`
-				);
-			}
-			if (!(clientPayload && clientPayload.deltas)) throw new Error('Error code 935469-b');
-
-			const toBeReturned: AnyIncomingMessage[] = [];
-
-			for (const payloadDelta of clientPayload.deltas) {
-				if (payloadDelta.deltaMessageReaction && !!this.ctx.globalOptions.listenEvents) {
-					const messageReaction: IncomingMessageReaction = {
-						type: IncomingMessageType.MessageReaction,
-						threadId: parseInt(
-							payloadDelta.deltaMessageReaction.threadKey.threadFbId ||
-								payloadDelta.deltaMessageReaction.threadKey.otherUserFbId
-						),
-						messageId: payloadDelta.deltaMessageReaction.messageId,
-						reaction: payloadDelta.deltaMessageReaction.reaction,
-						messageSenderId: parseInt(payloadDelta.deltaMessageReaction.senderId),
-						reactionSenderId: parseInt(payloadDelta.deltaMessageReaction.userId)
-					};
-					toBeReturned.push(messageReaction);
-				} else if (payloadDelta.deltaRecallMessageData && !!this.ctx.globalOptions.listenEvents) {
-					// "unsend message" by FB is called "recall message"
-					const messageUnsend: IncomingMessageUnsend = {
-						type: IncomingMessageType.MessageUnsend,
-						threadId: parseInt(
-							payloadDelta.deltaRecallMessageData.threadKey.threadFbId ||
-								payloadDelta.deltaRecallMessageData.threadKey.otherUserFbId
-						),
-						messageId: payloadDelta.deltaRecallMessageData.messageID,
-						messageSenderId: parseInt(payloadDelta.deltaRecallMessageData.senderID),
-						deletionTimestamp: parseInt(payloadDelta.deltaRecallMessageData.deletionTimestamp)
-					};
-					toBeReturned.push(messageUnsend);
-				} else if (payloadDelta.deltaMessageReply) {
-					let replyMessage: IncomingMessageReply;
-					try {
-						replyMessage = utils.formatDeltaReplyMessage(
-							payloadDelta.deltaMessageReply.repliedToMessage,
-							payloadDelta.deltaMessageReply.message
-						);
-					} catch (error) {
-						throw new Error(
-							`There was an unknown WS error. Contact the dev team about this (error code 935470). Original error: ${error}. Delta: ${v.delta}`
-						);
-					}
-					if (!replyMessage) throw new Error('Error code 935470-b');
-
-					if (this.ctx.globalOptions.autoMarkDelivery) {
-						// this._markDelivery(fmtMsg.threadID, fmtMsg.messageID);
-					}
-					toBeReturned.push(replyMessage);
-				}
-			}
-			return toBeReturned;
-		}
-
-		if (v.delta.class !== 'NewMessage' && !this.ctx.globalOptions.listenEvents) return [];
-
-		switch (v.delta.class) {
-			case 'DeliveryReceipt':
-				let formattedDelivery: DeliveryReceipt;
-				try {
-					formattedDelivery = utils.formatDeltaDeliveryReceipt(v.delta);
-				} catch (error) {
-					throw new Error(
-						`There was an unknown WS error. Contact the dev team about this (error code 935471). Original error: ${error}. Delta: ${v.delta}`
-					);
-				}
-				if (!formattedDelivery) throw new Error('Error code 935471-b');
-				return [formattedDelivery];
-			case 'ReadReceipt':
-				let formattedMessage: ReadReceipt;
-				try {
-					formattedMessage = utils.formatDeltaReadReceipt(v.delta);
-				} catch (error) {
-					throw new Error(
-						`There was an unknown WS error. Contact the dev team about this (error code 935472). Original error: ${error}. Delta: ${v.delta}`
-					);
-				}
-				if (!formattedMessage) throw new Error('Error code 935472-b');
-				return [formattedMessage];
-			case 'AdminTextMessage':
-			case 'ThreadName':
-			case 'ParticipantsAddedToGroupThread':
-			case 'ParticipantLeftGroupThread':
-				let formattedAdminText: IncomingEvent;
-				try {
-					formattedAdminText = utils.formatDeltaEvent(v.delta);
-				} catch (error) {
-					throw new Error(
-						`There was an unknown WS error. Contact the dev team about this (error code 935473). Original error: ${error}. Delta: ${v.delta}`
-					);
-				}
-				if (!formattedAdminText) throw new Error('Error code 935473-b');
-				return [formattedAdminText];
-			default:
-				break;
-		}
-		return [];
 	}
 
 	async markAsRead(threadId: ThreadID): Promise<void> {

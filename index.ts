@@ -123,7 +123,7 @@ async function loginHelper(credentials: LoginCredentials, globalOptions: ApiOpti
 		ctx.jar.setCookie('locale=en_US; path=/; domain=.facebook.com; secure', 'https://www.facebook.com');
 		ctx.jar.setCookie('locale=en_US; path=/; domain=.messenger.com; secure', 'https://www.messenger.com');
 		ctx.jar.setCookie(
-			'a11y=' + utils.generateAccessiblityCookie() + '; path=/; domain=.facebook.com; secure',
+			'a11y=' + utils.generateAccessibilityCookie() + '; path=/; domain=.facebook.com; secure',
 			'https://www.facebook.com'
 		);
 	});

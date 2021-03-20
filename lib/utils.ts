@@ -1,18 +1,5 @@
-import {
-	AnyAttachment,
-	ApiCtx,
-	ApiOptions,
-	DeliveryReceipt,
-	Dfs,
-	IncomingEvent,
-	IncomingEventType,
-	IncomingMessage,
-	IncomingMessageReply,
-	IncomingMessageType,
-	PrimitiveObject,
-	ReadReceipt,
-	RequestForm
-} from './types';
+import { AnyAttachment, ApiCtx, ApiOptions, Dfs, PrimitiveObject, RequestForm } from './types';
+import { getAdminTextMessageType } from './formatting/incomingMessageFormatters';
 import Jar from './jar';
 import stream from 'stream';
 import log from 'npmlog';
@@ -244,7 +231,7 @@ export function generatePresence(userID: string): string {
 	);
 }
 
-export function generateAccessiblityCookie(): string {
+export function generateAccessibilityCookie(): string {
 	const time = Date.now();
 	return encodeURIComponent(
 		JSON.stringify({
@@ -594,48 +581,6 @@ export function formatAttachment(attachments: any[], attachmentIds: any, attachm
 		: [];
 }
 
-export function formatDeltaMessage(delta: any): IncomingMessage {
-	const messageMetadata = delta.messageMetadata;
-
-	// mention data
-	const mdata: any[] = !delta.data ? [] : !delta.data.prng ? [] : JSON.parse(delta.data.prng);
-	const m_id = mdata.map(u => u.i);
-	const m_offset = mdata.map(u => u.o);
-	const m_length = mdata.map(u => u.l);
-	//TODO: This was modified
-	const mentions: { id: string }[] = [];
-	for (let i = 0; i < m_id.length; i++) {
-		mentions[m_id[i]] = delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
-	}
-
-	const formatted: IncomingMessage = {
-		type: IncomingMessageType.MessageRegular,
-		senderId: parseInt(messageMetadata.actorFbId),
-		body: delta.body || '',
-		// when one-to-one chat, `otherUserFbId` is used by FB
-		// when group chat, `threadFbId` is used by FB
-		threadId: parseInt(messageMetadata.threadKey.threadFbId || messageMetadata.threadKey.otherUserFbId),
-		messageId: messageMetadata.messageId,
-		attachments: ((delta.attachments as unknown[]) || []).map(att => _formatAttachment(att)),
-		mentions,
-		timestamp: parseInt(messageMetadata.timestamp),
-		isGroup: !!messageMetadata.threadKey.threadFbId
-	};
-	return formatted;
-}
-
-export function formatDeltaReplyMessage(deltaSourceMessage: any, deltaReplyMessage: any): IncomingMessageReply {
-	// since the reply incoming message has very similar structure as regular incoming message,
-	// we can format it using `formatDeltaMessage` function & add some additional properties
-	const formattedReplyMessage: any = {
-		...formatDeltaMessage(deltaReplyMessage), // format using another function
-		// and add some additional properties:
-		sourceMessage: formatDeltaMessage(deltaSourceMessage)
-	};
-	formattedReplyMessage.type = IncomingMessageType.MessageReply;
-	return formattedReplyMessage as IncomingMessageReply;
-}
-
 export function formatID(id: string): string {
 	if (id != undefined && id != null) {
 		return id.replace(/(fb)?id[:.]/, '');
@@ -739,74 +684,6 @@ export function formatHistoryMessage(
 		default:
 			return formatMessage(m);
 	}
-}
-
-export function getAdminTextMessageType(type: string): IncomingEventType | undefined {
-	switch (type) {
-		case 'change_thread_theme':
-			return IncomingEventType.ChangeThreadColorTheme;
-		case 'change_thread_nickname':
-			return IncomingEventType.ChangeNickname;
-		case 'change_thread_icon':
-			return IncomingEventType.ChangeThreadImage;
-		default:
-			return undefined;
-	}
-}
-
-export function formatDeltaEvent(delta: any): IncomingEvent {
-	let eventType: IncomingEventType | undefined;
-	let additionalData = {};
-
-	switch (delta.class) {
-		case 'AdminTextMessage':
-			additionalData = delta.untypedData;
-			eventType = getAdminTextMessageType(delta.type);
-			break;
-		case 'ThreadName':
-			eventType = IncomingEventType.ChangeThreadName;
-			additionalData = { name: delta.name };
-			break;
-		case 'ParticipantsAddedToGroupThread':
-			eventType = IncomingEventType.AddedParticipants;
-			additionalData = { addedParticipants: delta.addedParticipants };
-			break;
-		case 'ParticipantLeftGroupThread':
-			eventType = IncomingEventType.RemovedParticipant;
-			additionalData = { leftParticipantFbId: delta.leftParticipantFbId };
-			break;
-		default:
-			break;
-	}
-
-	return {
-		type: IncomingMessageType.ThreadEvent,
-		threadId: parseInt(delta.messageMetadata.threadKey.threadFbId || delta.messageMetadata.threadKey.otherUserFbId),
-		senderId: parseInt(delta.messageMetadata.actorFbId),
-		body: delta.messageMetadata.adminText,
-		timestamp: parseInt(delta.messageMetadata.timestamp),
-		eventType,
-		data: additionalData
-	};
-}
-
-export function formatDeltaDeliveryReceipt(delta: any): DeliveryReceipt {
-	return {
-		type: IncomingMessageType.DeliveryReceipt,
-		timestamp: parseInt(delta.deliveredWatermarkTimestampMs),
-		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId),
-		recipient: parseInt(delta.actorFbId || delta.threadKey.otherUserFbId),
-		deliveredMessageIds: delta.messageIds
-	};
-}
-
-export function formatDeltaReadReceipt(delta: any): ReadReceipt {
-	return {
-		type: IncomingMessageType.ReadReceipt,
-		reader: parseInt(delta.actorFbId || delta.threadKey.otherUserFbId),
-		timestamp: parseInt(delta.actionTimestampMs),
-		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId)
-	};
 }
 
 export function getFrom(str: string, startToken: string, endToken: string): string {

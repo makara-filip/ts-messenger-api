@@ -1,5 +1,5 @@
 /* eslint-disable no-case-declarations */
-import * as utils from './utils';
+import { getAdminTextMessageType } from './formatting/incomingMessageFormatters';
 
 export function formatMessagesGraphQLResponse(data: any) {
 	const messageThread = data.o0.data.message_thread;
@@ -211,7 +211,7 @@ export function formatMessagesGraphQLResponse(data: any) {
 					eventData: formatEventData(d.extensible_message_admin_text),
 
 					// @Legacy
-					logMessageType: utils.getAdminTextMessageType(d.extensible_message_admin_text_type),
+					logMessageType: getAdminTextMessageType(d.extensible_message_admin_text_type),
 					logMessageData: d.extensible_message_admin_text // Maybe different?
 				};
 			default:
