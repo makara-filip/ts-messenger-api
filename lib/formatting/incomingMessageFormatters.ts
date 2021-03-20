@@ -11,6 +11,7 @@ import {
 	IncomingMessageUnsend,
 	ReadReceipt
 } from '../types/incomingMessages';
+import { UserID } from '../types/users';
 import { _formatAttachment } from '../utils';
 
 export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
@@ -148,14 +149,20 @@ function formatDeltaMessage(delta: any): IncomingMessage {
 	const messageMetadata = delta.messageMetadata;
 
 	// mention data
-	const mdata: any[] = !delta.data ? [] : !delta.data.prng ? [] : JSON.parse(delta.data.prng);
-	const m_id = mdata.map(u => u.i);
-	const m_offset = mdata.map(u => u.o);
-	const m_length = mdata.map(u => u.l);
-	//TODO: This was modified
-	const mentions: { id: string }[] = [];
-	for (let i = 0; i < m_id.length; i++) {
-		mentions[m_id[i]] = delta.body.substring(m_offset[i], m_offset[i] + m_length[i]);
+	const mentions: { name: string; id: UserID }[] = [];
+	if (delta.data && delta.data.prng) {
+		// FB stores the mention data in "data.prng", but I have no idea what it stands for :-(
+		let mentionRawData;
+		try {
+			mentionRawData = JSON.parse(delta.data.prng);
+		} finally {
+			if (mentionRawData instanceof Array)
+				for (const onePerson of mentionRawData)
+					mentions.push({
+						name: delta.body.substring(onePerson.o, onePerson.o + onePerson.l),
+						id: parseInt(onePerson.i)
+					});
+		}
 	}
 
 	const formatted: IncomingMessage = {

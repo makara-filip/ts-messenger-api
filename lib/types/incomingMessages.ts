@@ -1,6 +1,6 @@
-import { AnyAttachment, MessageID } from "../types";
-import { ThreadID } from "./threads";
-import { UserID } from "./users";
+import { AnyAttachment, MessageID } from '../types';
+import { ThreadID } from './threads';
+import { UserID } from './users';
 
 export interface IncomingMessageBase {
 	type: IncomingMessageType;
@@ -28,7 +28,7 @@ export interface IncomingMessage extends IncomingMessageBase {
 	/** Whether is a group thread */
 	isGroup: boolean;
 	/** An object containing people mentioned/tagged in the message */
-	mentions: { id: string }[];
+	mentions: { name: string; id: UserID }[];
 	messageId: MessageID;
 	senderId: UserID;
 	timestamp: number;
