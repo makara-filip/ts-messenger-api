@@ -1,6 +1,6 @@
 {
 	"name": "ts-messenger-api",
-	"version": "0.3.1",
+	"version": "0.3.2",
 	"description": "The unofficial API for FB Messenger communication",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
