@@ -47,7 +47,7 @@ describe('Fundamental API functioning', function () {
 		expect(api2.getAppState()).to.be.not.empty;
 	});
 
-	it('gets a friendslist of both test accounts', async () => {
+	it('gets a friendliest of both test accounts', async () => {
 		const list1 = api1.getFriendsList();
 		const list2 = api2.getFriendsList();
 		expect(await list1).to.exist;
@@ -63,12 +63,12 @@ describe('Fundamental API functioning', function () {
 	});
 
 	it('should have both the test accounts activated', () => {
-		expect(api1.isActive, 'the first api was not activated').to.be.true;
-		expect(api2.isActive, 'the second api was not activated').to.be.true;
+		expect(api1.isActive(), 'the first api was not activated').to.be.true;
+		expect(api2.isActive(), 'the second api was not activated').to.be.true;
 	});
 
 	it('sends a typing indicator and spots it in another account', done => {
-		// the first account will send the indicator, the second one should spot it
+		// the first account() will send the indicator, the second one should spot it
 		let indicatorWasSent = false;
 		let indicatorReceivedTyping = false;
 		let isDone = false;

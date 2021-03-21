@@ -8,6 +8,20 @@ import { Response } from 'got';
 
 const defaultLogRecordSize = 100;
 
+/** Logs you into Facebook using given credentials and returns a `Api` instance.
+ *
+ * Login using email & password:
+ * ```typescript
+ * import facebookLogin from 'ts-messenger-api';
+ * const api = await facebookLogin({ email: 'example@email.com', password: 'your_fb_password' }, {});
+ * ```
+ * Login using an `AppState` given from last login:
+ * ```typescript
+ * import facebookLogin from 'ts-messenger-api';
+ * import fs from 'fs';
+ * const api = await facebookLogin({ appState: JSON.parse(fs.readFileSync('path_to_file')) }, {});
+ * ```
+ */
 export default async function login(loginData: LoginCredentials, options: ApiOptions): Promise<Api | undefined> {
 	const globalOptions: ApiOptions = {
 		selfListen: false,

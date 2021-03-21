@@ -20,7 +20,7 @@ import * as formatters from './formatters';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
 import FormData from 'form-data';
-import { ThreadHistory, ThreadID } from './types/threads';
+import { ThreadHistory, ThreadID, ThreadInfo } from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 import { EventEmitter } from 'events';
 
@@ -58,18 +58,23 @@ export default class Api {
 	private chatOn = true;
 	private foreground = false;
 
+	/** @internal */
 	constructor(defaultFuncs: Dfs, ctx: ApiCtx) {
 		this.ctx = ctx;
 		this._defaultFuncs = defaultFuncs;
 	}
 
+	/** Returns the `AppState` which can be saved and reused
+	 * in future logins without needing the password.
+	 * @category Activation */
 	getAppState(): AppState {
 		return utils.getAppState(this.ctx.jar);
 	}
 
 	/** Establish the websocket connection and enables message sending and receiving.
 	 * Possible event names are `error`, `message`, `typ`, `presence` and `close`.
-	 * @returns Event emitter emitting all incoming events. */
+	 * @returns Event emitter emitting all incoming events.
+	 * @category Activation */
 	async listen(): Promise<EventEmitter> {
 		//Reset some stuff
 		this.ctx.lastSeqId = 0;
@@ -258,7 +263,8 @@ export default class Api {
 		});
 	}
 
-	/** This function disables the websocket connection and, consequently, disables message sending and receiving. */
+	/** Closes the websocket connection and, consequently, disables message sending and receiving.
+	 * @category Activation */
 	stopListening(): void {
 		if (!this.ctx.mqttClient) return;
 		this.ctx.mqttClient.end();
@@ -266,8 +272,9 @@ export default class Api {
 	}
 
 	/** This value indicates whether the API listens for events and is able to send messages.
-	 * This property is true if `API.listen` method was invoked. */
-	get isActive(): boolean {
+	 * This property is true if `API.listen` method was invoked.
+	 * @category Activation */
+	isActive(): boolean {
 		return !!this.ctx.mqttClient;
 	}
 	private checkForActiveState() {
@@ -276,8 +283,8 @@ export default class Api {
 
 	private websocketTaskNumber = 1;
 	private websocketRequestNumber = 1;
-	/** Creates and returns an object that can be JSON-stringified and sent using the websocket connection.
-	 * @param fbContentType (number) specific for different websocket types as Facebook uses
+	/** Returns new object that can be JSON-stringified and sent using the websockets.
+	 * @param fbContentType (number) specific for each websocket requests
 	 * (4 for typing & state indication, 3 for message sending, etc.) - default 3 */
 	private createWebsocketContent(fbContentType = 3): WebsocketContent {
 		return {
@@ -307,6 +314,8 @@ export default class Api {
 		});
 	}
 
+	/** Marks a thread with given `threadId` as read.
+	 * @category Messages */
 	async markAsRead(threadId: ThreadID): Promise<void> {
 		// similar code structure as in "sendMessage" method...
 		this.checkForActiveState();
@@ -325,12 +334,10 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
-	/**
-	 * Sends a message to a given thread.
-	 * @param msg Contents of the message
+	/** Sends a message to a given thread.
+	 * @param msg Actual message object - can contain attachments, mentions, reply...
 	 * @param threadID ID of a thread to send the message to
-	 * @param callback Will be called when the message was successfully sent or rejected
-	 */
+	 * @category Messages */
 	async sendMessage(msg: OutgoingMessage, threadID: ThreadID): Promise<void> {
 		this.checkForActiveState();
 
@@ -391,6 +398,8 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Unsends the message with given `messageId`, resulting in other participants not seeing the original content of the message.
+	 * @category Messages */
 	async unsendMessage(messageID: MessageID): Promise<void> {
 		this.checkForActiveState();
 		if (!messageID) throw new Error('Invalid input to unsendMessage method');
@@ -406,6 +415,9 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Forwards a message with id `messageID` to thread `threadId`.
+	 * You can use this method to send an attachment without uploading it again.
+	 * @category Messages */
 	async forwardMessage(messageID: MessageID, threadID: ThreadID): Promise<void> {
 		this.checkForActiveState();
 		if (!(messageID && threadID)) throw new Error('Invalid input to forwardMessage method');
@@ -450,11 +462,11 @@ export default class Api {
 		);
 	}
 
-	/** Sends a typing indicator to the specified thread.
-	 * @param threadID the specified thread to send the indicator
-	 * @param isTyping the state of typing indicator
-	 * @param timeout the time in milliseconds after which to turn off the typing state
-	 * (if the state was set to true) - recommended 20000 (20 seconds) */
+	/** Sends a typing indicator to a thread with id `threadId`.
+	 * @param threadID the specified thread to send the indicator to
+	 * @param isTyping the actual state of typing indicator (typing or not typing)
+	 * @param timeout time in milliseconds after which to turn off the typing state if the state is set to true - default 20000 (20 seconds)
+	 * @category Messages */
 	async sendTypingIndicator(threadID: ThreadID, isTyping: boolean, timeout = 20000): Promise<void> {
 		this.checkForActiveState();
 		if (!threadID) throw new Error('Invalid input to sendTypingIndicator method.');
@@ -482,6 +494,9 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Sends a reaction to a message with id `messageId` in a thread with `threadId`.
+	 * @param reaction An emoji to use in the reaction. The string must be exactly one emoji.
+	 * @category Messages */
 	async sendMessageReaction(threadId: ThreadID, messageId: MessageID, reaction: string): Promise<void> {
 		this.checkForActiveState();
 		if (!(threadId && messageId && reaction))
@@ -504,13 +519,16 @@ export default class Api {
 		});
 		await this.sendWebsocketContent(wsContent);
 	}
+	/** @category Messages */
 	async clearMessageReaction(threadId: ThreadID, messageId: MessageID): Promise<void> {
 		await this.sendMessageReaction(threadId, messageId, '');
 	}
 
+	/** Returns all available information about one or more users by their FB id.
+	 * @category Users */
 	async getUserInfo(id: UserID[]): Promise<UserInfoGeneralDictByUserId> {
 		const form: { [index: string]: UserID } = {};
-		id.map((v, i) => {
+		id.forEach((v, i) => {
 			form['ids[' + i + ']'] = v;
 		});
 		return await this._defaultFuncs
@@ -546,8 +564,9 @@ export default class Api {
 		return retObj;
 	}
 
-	/** Sets a custom emoji to the specified thread as a part of chat customisation.
-	 * If you want to keep the original Facebook "like", set an empty string as the `emoji` argument. */
+	/** Sets a custom emoji to a thread with `threadId`.
+	 * If you want to keep the original Facebook "like", set the `emoji` argument as an empty string.
+	 * @category Customisation */
 	async changeThreadEmoji(threadId: ThreadID, emoji: string): Promise<void> {
 		this.checkForActiveState();
 
@@ -562,6 +581,9 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Sets a custom colour theme to a thread with `threadId`.
+	 * ⚠ Warning: `threadId` parameter will change to enum soon
+	 * @category Customisation */
 	async changeThreadColorTheme(threadId: ThreadID, themeId: number): Promise<void> {
 		// TODO: add an enum for all theme IDs
 		this.checkForActiveState();
@@ -577,6 +599,8 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Adds one or more users to a group with id `threadId`.
+	 * @category Group management */
 	async addUserToGroup(userIds: UserID | UserID[], threadId: ThreadID): Promise<void> {
 		this.checkForActiveState();
 		if (!(userIds instanceof Array)) userIds = [userIds];
@@ -592,6 +616,8 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Removes one user from a group with id `threadId`.
+	 * @category Group management */
 	async removeUserFromGroup(userId: UserID, threadId: ThreadID): Promise<void> {
 		this.checkForActiveState();
 
@@ -606,10 +632,14 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** @category Group management  */
 	async leaveGroup(threadId: ThreadID): Promise<void> {
 		await this.removeUserFromGroup(this.ctx.userID, threadId);
 	}
 
+	/** Marks a user as admin/non-admin in a group chat.
+	 * If the user calling this function has insufficient permissions to raise admins in the group, nothing happens.
+	 * @category Group management */
 	async changeAdminStatus(threadId: ThreadID, userId: UserID, isAdmin: boolean): Promise<void> {
 		this.checkForActiveState();
 
@@ -624,6 +654,8 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Changes the group chat title. This works only on groups.
+	 * @category Group management */
 	async changeGroupName(threadId: ThreadID, newName: string): Promise<void> {
 		this.checkForActiveState();
 		if (!newName) throw new Error('Undefined argument: newName was not specified.');
@@ -639,6 +671,13 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Set a profile picture to a group with id `threadId`.
+	 * @example
+	 * ```typescript
+	 * import fs from 'fs';
+	 * api.changeGroupPhoto(9876543219876, fs.createReadableStream('path_to_picture'))
+	 * ```
+	 * @category Group management */
 	async changeGroupPhoto(threadId: ThreadID, photo: stream.Readable): Promise<void> {
 		this.checkForActiveState();
 
@@ -657,6 +696,8 @@ export default class Api {
 		await this.sendWebsocketContent(wsContent);
 	}
 
+	/** Returns all available information about all user's friends as an array of user objects.
+	 * @category Users */
 	async getFriendsList(): Promise<FriendsList> {
 		return await this._defaultFuncs
 			.postFormData('https://www.facebook.com/chat/user_info_all', this.ctx.jar, {}, { viewer: this.ctx.userID })
@@ -668,7 +709,10 @@ export default class Api {
 			});
 	}
 
-	async getThreadInfo(threadId: ThreadID): Promise<any> {
+	/** Returns all available information about a thread with `threadId`.
+	 * @category Threads
+	 */
+	async getThreadInfo(threadId: ThreadID): Promise<ThreadInfo> {
 		const form = {
 			queries: JSON.stringify({
 				o0: {
@@ -698,7 +742,9 @@ export default class Api {
 			});
 	}
 
-	async getThreadHistory(threadID: ThreadID, amount: number, timestamp: number | undefined): Promise<ThreadHistory> {
+	/** Returns `amount` of thread messages before the `timestamp` (default undefined - last messages)
+	 * @category Threads */
+	async getThreadHistory(threadID: ThreadID, amount: number, timestamp?: number): Promise<ThreadHistory> {
 		// `queries` has to be a string. I couldn't tell from the dev console. This
 		// took me a really long time to figure out. I deserve a cookie for this.
 		const form = {

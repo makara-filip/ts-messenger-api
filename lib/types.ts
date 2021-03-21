@@ -262,6 +262,8 @@ export interface MqttQueue {
 	last_seq_id?: number;
 }
 
+/** Array of cookies representing the login state of a single Api instance.
+ * This can be stored and used for later Api initialisation. */
 export type AppState = Cookie[];
 
 /** Represents outgoing websocket content which Facebook accepts.

@@ -32,7 +32,6 @@ The following table lists all features that are implemented or are destined to b
 | Get friends list       |      ✔      |
 | Get user ID            |     ❌      |
 | Get user info          |      ✔      |
-| Get current user ID    |      ✔      |
 | **Threads**            |
 | Get thread list        |     ❌      |
 | Get thread info        |      ✔      |
@@ -47,6 +46,7 @@ The following table lists all features that are implemented or are destined to b
 | **Group management**   |
 | Add user to group      |      ✔      |
 | Remove user from group |      ✔      |
+| Leave group            |      ✔      |
 | Change admin status    |      ✔      |
 | Change group image     |      ✔      |
 | Change group title     |      ✔      |
