@@ -20,3 +20,6 @@ lib/
 
 # only "dist" files & js files will be included in the packag
 *.js.map
+
+# Documentation
+docs/

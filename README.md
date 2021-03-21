@@ -12,6 +12,10 @@ const friends = await api.getFriendsList();
 await api.sendMessage({ body: 'Hi there!' }, friends[0].userID);
 ```
 
+## Docs
+
+You can find the documentation [here](https://makiprogrammer.github.io/ts-messenger-api/index.html).
+
 ## Features
 
 The following table lists all features that are implemented or are destined to be implemented in the future. If you would like to have some feature implemented do not hesitate to submit PR.
