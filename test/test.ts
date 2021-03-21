@@ -9,7 +9,9 @@ import {
 	IncomingMessageBase,
 	IncomingMessageReply,
 	Typ,
-	IncomingMessageType
+	IncomingMessageType,
+	IncomingEvent,
+	IncomingEventType
 } from '../dist/lib/types/incomingMessages';
 import { EventEmitter } from 'events';
 import { sentence } from 'txtgen';
@@ -19,6 +21,9 @@ describe('Fundamental API functioning', function () {
 
 	let appState1: AppState, appState2: AppState;
 	let startTime: Date;
+
+	const groupThreadId = 3891592384231017;
+
 	before(() => {
 		startTime = new Date();
 		console.log(`The tests have just started. Timestamp: ${startTime.getTime()}`);
@@ -223,6 +228,93 @@ describe('Fundamental API functioning', function () {
 			{ attachment: fs.createReadStream(path.join(__dirname, 'testAttachments/video.mp4')) },
 			api2.ctx.userID
 		);
+	});
+
+	// ======== Thread modification functionality ========
+	it('changes thread emoji', done => {
+		const emoji = '✔';
+
+		const listener = (event: IncomingMessageBase) => {
+			if (event.type !== IncomingMessageType.ThreadEvent) return;
+			const threadEvent = event as IncomingEvent;
+			if (threadEvent.eventType !== IncomingEventType.ChangeThreadEmoji) return;
+
+			expect(threadEvent.data.newThreadEmoji).to.exist;
+			expect(threadEvent.data.newThreadEmoji?.thread_icon).to.equal(emoji);
+
+			done();
+			emitter.removeListener('message', listener);
+		};
+		emitter.addListener('message', listener);
+
+		api1.changeThreadEmoji(groupThreadId, emoji);
+	});
+	it('changes thread color theme', done => {
+		const colorTheme = 1257453361255152;
+
+		const listener = (event: IncomingMessageBase) => {
+			if (event.type !== IncomingMessageType.ThreadEvent) return;
+			const threadEvent = event as IncomingEvent;
+			if (threadEvent.eventType !== IncomingEventType.ChangeThreadColorTheme) return;
+
+			expect(threadEvent.data.newThreadColorTheme).to.exist;
+			expect(threadEvent.data.newThreadColorTheme?.theme_color).to.exist;
+
+			done();
+			emitter.removeListener('message', listener);
+		};
+		emitter.addListener('message', listener);
+
+		api1.changeThreadColorTheme(groupThreadId, colorTheme);
+	});
+	it('changes admin status', done => {
+		const listener = (event: IncomingMessageBase) => {
+			if (event.type !== IncomingMessageType.ThreadEvent) return;
+			const threadEvent = event as IncomingEvent;
+			if (threadEvent.eventType !== IncomingEventType.ChangeAdminStatus) return;
+
+			expect(threadEvent.data.changeAdminInfo).to.exist;
+			expect(threadEvent.data.changeAdminInfo?.targetId).to.equal(api2.ctx.userID);
+			expect(threadEvent.data.changeAdminInfo?.isAdminFromNow).to.be.true;
+
+			done();
+			emitter.removeListener('message', listener);
+			api1.changeAdminStatus(groupThreadId, api2.ctx.userID, false);
+		};
+		emitter.addListener('message', listener);
+
+		api1.changeAdminStatus(groupThreadId, api2.ctx.userID, true);
+	});
+	it('removes user from group / leaves group', done => {
+		const listener = (event: IncomingMessageBase) => {
+			if (event.type !== IncomingMessageType.ThreadEvent) return;
+			const threadEvent = event as IncomingEvent;
+			if (threadEvent.eventType !== IncomingEventType.RemovedParticipant) return;
+
+			expect(threadEvent.data.leftParticipantFbId).to.equal(api2.ctx.userID);
+			setTimeout(done, 8000);
+			emitter.removeListener('message', listener);
+		};
+		emitter.addListener('message', listener);
+
+		api1.removeUserFromGroup(api2.ctx.userID, groupThreadId);
+	});
+	it('adds user to group', done => {
+		const listener = (event: IncomingMessageBase) => {
+			if (event.type !== IncomingMessageType.ThreadEvent) return;
+			const threadEvent = event as IncomingEvent;
+			if (threadEvent.eventType !== IncomingEventType.AddedParticipants) return;
+
+			expect(threadEvent.data.addedParticipants).to.exist;
+			if (!threadEvent.data.addedParticipants) return; // for compiler to be happy
+			expect(threadEvent.data.addedParticipants[0]?.userId).to.equal(api2.ctx.userID);
+
+			done();
+			emitter.removeListener('message', listener);
+		};
+		emitter.addListener('message', listener);
+
+		api1.removeUserFromGroup(api2.ctx.userID, groupThreadId);
 	});
 
 	it('should get user info of the second account', async () => {
