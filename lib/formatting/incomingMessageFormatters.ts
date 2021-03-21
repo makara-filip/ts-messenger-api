@@ -3,6 +3,7 @@ import {
 	AnyIncomingMessage,
 	DeliveryReceipt,
 	IncomingEvent,
+	IncomingEventData,
 	IncomingEventType,
 	IncomingMessage,
 	IncomingMessageReaction,
@@ -208,24 +209,55 @@ export function getAdminTextMessageType(type: string): IncomingEventType | undef
 
 function formatDeltaEvent(delta: any): IncomingEvent {
 	let eventType: IncomingEventType | undefined;
-	let additionalData = {};
+	let additionalData: IncomingEventData = {};
 
 	switch (delta.class) {
 		case 'AdminTextMessage':
-			additionalData = delta.untypedData;
-			eventType = getAdminTextMessageType(delta.type);
+			if (!(delta.type && delta.untypedData)) break;
+			switch (delta.type) {
+				case 'change_thread_theme':
+					eventType = IncomingEventType.ChangeThreadColorTheme;
+					additionalData = {
+						newThreadColorTheme: {
+							should_show_icon: delta.untypedData.should_show_icon == '1',
+							theme_color: delta.untypedData.theme_color,
+							accessibility_label: delta.untypedData.accessibility_label,
+							theme_name_with_subtitle: delta.untypedData.theme_name_with_subtitle,
+							gradient: delta.untypedData.gradient ? JSON.parse(delta.untypedData.gradient) : undefined
+						}
+					};
+					break;
+				case 'change_thread_nickname':
+					eventType = IncomingEventType.ChangeNickname;
+					// FB doesn't have nickname changing functional as of 21/3/2021
+					break;
+				case 'change_thread_icon':
+					eventType = IncomingEventType.ChangeThreadEmoji;
+					additionalData = { newThreadEmoji: delta.untypedData };
+					break;
+				default:
+					additionalData = delta.untypedData;
+					eventType = getAdminTextMessageType(delta.type);
+					break;
+			}
 			break;
 		case 'ThreadName':
 			eventType = IncomingEventType.ChangeThreadName;
-			additionalData = { name: delta.name };
+			additionalData = { newThreadName: delta.name };
 			break;
 		case 'ParticipantsAddedToGroupThread':
 			eventType = IncomingEventType.AddedParticipants;
-			additionalData = { addedParticipants: delta.addedParticipants };
+			additionalData = {
+				addedParticipants: delta.addedParticipants.map((p: any) => ({
+					firstName: p.firstName,
+					fullName: p.fullName,
+					userId: parseInt(p.userFbId)
+				}))
+			};
 			break;
 		case 'ParticipantLeftGroupThread':
 			eventType = IncomingEventType.RemovedParticipant;
-			additionalData = { leftParticipantFbId: delta.leftParticipantFbId };
+			additionalData = { leftParticipantFbId: parseInt(delta.leftParticipantFbId) };
 			break;
 		default:
 			break;

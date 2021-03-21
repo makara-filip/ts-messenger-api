@@ -60,7 +60,7 @@ export interface IncomingEvent extends IncomingMessageBase {
 	body: string;
 	timestamp: number;
 	eventType?: IncomingEventType;
-	data: unknown; // TODO: specify the type
+	data: IncomingEventData;
 }
 
 export enum IncomingEventType {
@@ -71,6 +71,25 @@ export enum IncomingEventType {
 	ChangeNickname,
 	RemovedParticipant,
 	AddedParticipants
+}
+
+/** Compound type of incoming event data. 
+ * Includes many event types & only one property is defined at the same time. */
+export interface IncomingEventData {
+	newThreadName?: string;
+	newThreadEmoji?: {
+		thread_icon_url: string;
+		thread_icon: string;
+	};
+	newThreadColorTheme?: {
+		should_show_icon: boolean;
+		theme_color: string;
+		accessibility_label: string;
+		theme_name_with_subtitle: string;
+		gradient?: string[];
+	};
+	addedParticipants?: { firstName: string; fullName: string; userId: UserID }[];
+	leftParticipantFbId?: UserID;
 }
 
 export interface Typ extends IncomingMessageBase {
