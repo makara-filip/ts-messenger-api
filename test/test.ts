@@ -3,15 +3,14 @@ import login from '../dist/index';
 import Api from '../dist/lib/api';
 import fs from 'fs';
 import path from 'path';
+import { AppState, MessageID } from '../dist/lib/types';
 import {
-	AppState,
 	IncomingMessage,
 	IncomingMessageBase,
-	MessageID,
 	IncomingMessageReply,
 	Typ,
 	IncomingMessageType
-} from '../dist/lib/types';
+} from '../dist/lib/types/incomingMessages';
 import { EventEmitter } from 'events';
 import { sentence } from 'txtgen';
 
