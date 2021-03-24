@@ -97,7 +97,7 @@ export default class Api {
 			})
 		};
 
-		return await this._defaultFuncs
+		this.listener = await this._defaultFuncs
 			.post('https://www.facebook.com/api/graphqlbatch/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then(async resData => {
@@ -115,6 +115,8 @@ export default class Api {
 				}
 				throw new Error('FB did not send appropriate data. Contact the dev team (error code 93555555)');
 			});
+		if (!this.listener) throw new Error('Fatal error. Contact the dev team (error code 93555555-b)');
+		return this.listener;
 	}
 
 	private async _listenMqtt(): Promise<EventEmitter> {
@@ -265,12 +267,17 @@ export default class Api {
 		});
 	}
 
+	/** Event emitter emitting incoming messages. Set by `Api.listen()` method.
+	 * Possible event names are `error`, `message`, `typ`, `presence` and `close`. */
+	listener?: EventEmitter;
+
 	/** Closes the websocket connection and, consequently, disables message sending and receiving.
 	 * @category Activation */
 	stopListening(): void {
 		if (!this.ctx.mqttClient) return;
 		this.ctx.mqttClient.end();
 		this.ctx.mqttClient = undefined;
+		this.listener = undefined;
 	}
 
 	/** This value indicates whether the API listens for events and is able to send messages.
