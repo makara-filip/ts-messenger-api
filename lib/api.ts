@@ -90,7 +90,7 @@ export default class Api {
 						limit: 1,
 						before: null,
 						tags: ['INBOX'],
-						includeDeliveryReceipts: false,
+						includeDeliveryReceipts: true,
 						includeSeqID: true
 					}
 				}
@@ -113,7 +113,7 @@ export default class Api {
 					this.ctx.lastSeqId = resData[0].o0.data.viewer.message_threads.sync_sequence_id;
 					return await this._listenMqtt();
 				}
-				throw new Error('Fatal XT6');
+				throw new Error('FB did not send appropriate data. Contact the dev team (error code 93555555)');
 			});
 	}
 
@@ -257,8 +257,10 @@ export default class Api {
 					queue.device_params = null;
 				}
 
-				mqttClient.publish(topic, JSON.stringify(queue), { qos: 1, retain: false });
-				resolve(mqttEE);
+				mqttClient.publish(topic, JSON.stringify(queue), { qos: 1, retain: false }, (err, packet) => {
+					if (err) return reject(err);
+					resolve(mqttEE);
+				});
 			});
 		});
 	}
