@@ -483,8 +483,8 @@ export default class Api {
 		// we need to know whether the thread is a group
 		// TODO: transform to getThreadInfo when it's available
 		const history = await this.getThreadHistory(threadID, 1, undefined);
-		if (!history) throw new Error('An error 2 occuder while checking whether the thread was a group or not.');
-		if (!history.length) throw new Error('An error 3 occuder while checking whether the thread was a group or not.');
+		if (!history) throw new Error('An error 2 occurred while checking whether the thread was a group or not.');
+		if (!history.length) throw new Error('An error 3 occurred while checking whether the thread was a group or not.');
 
 		const wsContent = this.createWebsocketContent(4);
 		// typing indication is slightly different from message sending

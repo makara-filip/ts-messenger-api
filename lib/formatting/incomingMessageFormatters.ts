@@ -22,7 +22,9 @@ export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 			formattedMessage = formatDeltaMessage(delta);
 		} catch (error) {
 			throw new Error(
-				`There was an unknown WS error. Contact the dev team about this (error code 935468). Original error: ${error}. Delta: ${delta}`
+				`There was an unknown WS error. Contact the dev team about this (error code 935468). Original error: ${error}. Delta: ${JSON.stringify(
+					delta
+				)}`
 			);
 		}
 		if (!formattedMessage) throw new Error('Error code 935468-b');
@@ -41,7 +43,9 @@ export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 			clientPayload = JSON.parse(Buffer.from(delta.payload).toString());
 		} catch (error) {
 			throw new Error(
-				`There was an error parsing WS. Contact the dev team about this (error code 935469). Original error: ${error}. Delta: ${delta}`
+				`There was an error parsing WS. Contact the dev team about this (error code 935469). Original error: ${error}. Delta: ${JSON.stringify(
+					delta
+				)}`
 			);
 		}
 		if (!(clientPayload && clientPayload.deltas)) throw new Error('Error code 935469-b');
@@ -84,7 +88,9 @@ export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 					);
 				} catch (error) {
 					throw new Error(
-						`There was an unknown WS error. Contact the dev team about this (error code 935470). Original error: ${error}. Delta: ${delta}`
+						`There was an unknown WS error. Contact the dev team about this (error code 935470). Original error: ${error}. Delta: ${JSON.stringify(
+							delta
+						)}`
 					);
 				}
 				if (!replyMessage) throw new Error('Error code 935470-b');
@@ -107,7 +113,9 @@ export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 				formattedDelivery = formatDeltaDeliveryReceipt(delta);
 			} catch (error) {
 				throw new Error(
-					`There was an unknown WS error. Contact the dev team about this (error code 935471). Original error: ${error}. Delta: ${delta}`
+					`There was an unknown WS error. Contact the dev team about this (error code 935471). Original error: ${error}. Delta: ${JSON.stringify(
+						delta
+					)}`
 				);
 			}
 			if (!formattedDelivery) throw new Error('Error code 935471-b');
@@ -119,7 +127,9 @@ export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 				formattedMessage = formatDeltaReadReceipt(delta);
 			} catch (error) {
 				throw new Error(
-					`There was an unknown WS error. Contact the dev team about this (error code 935472). Original error: ${error}. Delta: ${delta}`
+					`There was an unknown WS error. Contact the dev team about this (error code 935472). Original error: ${error}. Delta: ${JSON.stringify(
+						delta
+					)}`
 				);
 			}
 			if (!formattedMessage) throw new Error('Error code 935472-b');
@@ -134,7 +144,9 @@ export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 				formattedAdminText = formatDeltaEvent(delta);
 			} catch (error) {
 				throw new Error(
-					`There was an unknown WS error. Contact the dev team about this (error code 935473). Original error: ${error}. Delta: ${delta}`
+					`There was an unknown WS error. Contact the dev team about this (error code 935473). Original error: ${error}. Delta: ${JSON.stringify(
+						delta
+					)}`
 				);
 			}
 			if (!formattedAdminText) throw new Error('Error code 935473-b');
