@@ -14,7 +14,8 @@ import {
 } from './types';
 import { parseDelta } from './formatting/incomingMessageFormatters';
 import { Presence, Typ, IncomingMessageType } from './types/incomingMessages';
-import { FriendsList, UserID, UserInfoGeneral, UserInfoGeneralDictByUserId } from './types/users';
+import { UserID, UserInfo } from './types/users';
+import { formatUserInfoDict } from './formatting/userInfoFormatters';
 import * as utils from './utils';
 import * as formatters from './formatters';
 import mqtt from 'mqtt';
@@ -535,11 +536,9 @@ export default class Api {
 
 	/** Returns all available information about one or more users by their FB id.
 	 * @category Users */
-	async getUserInfo(id: UserID[]): Promise<UserInfoGeneralDictByUserId> {
+	async getUserInfo(id: UserID[]): Promise<Record<UserID, UserInfo>> {
 		const form: { [index: string]: UserID } = {};
-		id.forEach((v, i) => {
-			form['ids[' + i + ']'] = v;
-		});
+		id.forEach((value, index) => (form['ids[' + index + ']'] = value));
 		return await this._defaultFuncs
 			.post('https://www.facebook.com/chat/user_info/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
@@ -547,30 +546,8 @@ export default class Api {
 				if (resData.error) {
 					throw resData;
 				}
-				return this.formatData(resData.payload.profiles);
+				return formatUserInfoDict(resData.payload.profiles);
 			});
-	}
-	private formatData(data: any): Map<UserID, UserInfoGeneral> {
-		const retObj: UserInfoGeneralDictByUserId = new Map<UserID, UserInfoGeneral>();
-
-		for (const prop in data) {
-			if (Object.hasOwnProperty.call(data, prop)) {
-				const innerObj = data[prop];
-				retObj.set(prop, {
-					name: innerObj.name,
-					firstName: innerObj.firstName,
-					vanity: innerObj.vanity,
-					thumbSrc: innerObj.thumbSrc,
-					profileUrl: innerObj.uri,
-					gender: innerObj.gender,
-					type: innerObj.type,
-					isFriend: innerObj.is_friend,
-					isBirthday: !!innerObj.is_birthday
-				});
-			}
-		}
-
-		return retObj;
 	}
 
 	/** Sets a custom emoji to a thread with `threadId`.
@@ -707,20 +684,19 @@ export default class Api {
 
 	/** Returns all available information about all user's friends as an array of user objects.
 	 * @category Users */
-	async getFriendsList(): Promise<FriendsList> {
+	async getFriendsList(): Promise<UserInfo[]> {
 		return await this._defaultFuncs
 			.postFormData('https://www.facebook.com/chat/user_info_all', this.ctx.jar, {}, { viewer: this.ctx.userID })
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then((resData: any) => {
 				if (!resData) throw { error: 'getFriendsList returned empty object.' };
 				if (resData.error) throw resData;
-				return resData as FriendsList;
+				return Object.values(formatUserInfoDict(resData.payload));
 			});
 	}
 
 	/** Returns all available information about a thread with `threadId`.
-	 * @category Threads
-	 */
+	 * @category Threads */
 	async getThreadInfo(threadId: ThreadID): Promise<ThreadInfo> {
 		const form = {
 			queries: JSON.stringify({

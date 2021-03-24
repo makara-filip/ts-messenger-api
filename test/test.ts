@@ -226,7 +226,7 @@ describe('Fundamental API functioning', function () {
 	});
 
 	it('should get user info of the second account', async () => {
-		const info = (await api1.getUserInfo([api2.ctx.userID])).get(api2.ctx.userID);
+		const info = (await api1.getUserInfo([api2.ctx.userID]))[api2.ctx.userID];
 		expect(info).to.exist;
 		expect(info?.isFriend).to.be.true;
 	});

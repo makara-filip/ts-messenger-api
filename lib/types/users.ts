@@ -1,40 +1,38 @@
 /** the identification number of a Facebook user (it can be human, app or page) */
 export type UserID = string | number;
-export type FacebookUserGender = string | number; // still confused - it is not yet unified
 
-// The facebook-chat-api package is inconsistent and give different results
-// when `API.getUserInfo()` and `API.getFriendsList()` methods are called.
+export enum UserGender {
+	Female,
+	Male,
+	Other,
+	Unknown = -1
+	// TODO: put appropriate number values
+}
 
-interface UserInfoRootObject {
+export interface UserInfo {
+	/** unique FB user identifier */
+	id: UserID;
+	/** whole name of a person - first name & family name*/
+	fullName: string;
+	/** first name of a person */
 	firstName: string;
-	gender: FacebookUserGender;
-	isBirthday: boolean;
+	/** alternate name of a person (optional - new FB users don't have this name set by default) */
+	alternateName?: string;
+
+	gender: UserGender;
+	/** whether is a person included in user's friends list */
 	isFriend: boolean;
-	/** The Url to Facebook profile of the user.
-	 * @example `https://www.facebook.com/james.testing24 */
+	/** whether is a person blocked by the user */
+	isBlocked: boolean;
+
+	/** URL to profile picture of the user in low resolution (32x32 px) */
+	thumbSrc: string;
+	/** URL to user's FB profile.
+	 * @example 'https://www.facebook.com/james.testing24' */
 	profileUrl: string;
-	/** The profile name of the user
-	 * @example `james.testing24 */
+	/** user's profile name @example 'james.testing24' */
 	vanity: string;
+	/** Type of FB account.
+	 * @see {isFriend} property to indicate whether a person is friend of the singed in user. */
 	type: 'friend' | 'user' | 'page' | 'event' | 'app' | 'group' | string;
 }
-
-/** Information about a single Facebook user provided by the `API.getUserInfo()` method. */
-export interface UserInfoGeneral extends UserInfoRootObject {
-	name: string;
-	/** The Url to profile picture of the user in low-resolution (32x32 px) */
-	thumbSrc: string;
-}
-/** Inforamtion about multiple Facebook users returned by the `API.getUserInfo()` method. */
-export type UserInfoGeneralDictByUserId = Map<UserID, UserInfoGeneral>;
-
-/** Information about a single user marked as a friend. It is provided by the `API.getFriendsList()` method. */
-export interface UserInfoWhenFriend extends UserInfoRootObject {
-	userID: UserID;
-	alternateName: string;
-	fullName: string;
-	profilePicture: string;
-}
-/** An array of the user information who are marked as friends.
- * It is provided by the `API.getFriendsList()` method. */
-export type FriendsList = Array<UserInfoWhenFriend>;
