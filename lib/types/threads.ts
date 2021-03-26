@@ -3,48 +3,82 @@ import { UserID } from './users';
 export type ThreadID = string | number;
 
 export interface ThreadInfo {
-	threadID: ThreadID;
-	participantIDs: Array<UserID>;
+	/** the thread identifier */
+	threadId: ThreadID;
+	/** name of a group chat (`null` if one-to-one chat) */
+	threadName: string | null;
+	/** list of all user IDs in a thread */
+	participantIds: UserID[];
 
-	/** Name of the thread - usually the name of the user. In group chats, this will be empty if the name of the group chat is unset. */
-	name: string;
-	nicknames: Array<ThreadNickname> | null;
+	/** represents the administration information for groups (`null` if one-to-one chat) */
+	groupAdministration: {
+		/** whether admins in a group approve new memberships */
+		approvalMode: boolean;
+		/** list of all admin user IDs */
+		adminIds: UserID[];
+	} | null;
+
+	/** number of unread messages since last view */
 	unreadCount: number;
+	/** total number of messages in a thread */
 	messageCount: number;
-	/** Url to the group chat photo. `Null` if unset or one-to-one chat. */
-	imageSrc: string;
 
-	timestamp: number;
-	muteUntil: number;
-	isGroup: boolean;
-	isSubscribed: boolean;
-	folder: 'INBOX' | 'inbox' | 'ARCHIVE' | 'archive';
-	isArchived: boolean;
-	/** If the user cannot reply to this thread, this is the reason why. Otherwise, `null`. */
-	cannotReplyReason: null | 'RECIPIENTS_NOT_LOADABLE' | 'BLOCKED' | 'recipients_not_loadable' | 'blocked' | string;
-	canReply: boolean;
+	/** timestamp (in milliseconds) of last update in a thread */
+	lastUpdateTimestamp: number;
+	lastMessage: {
+		/** simple text of what last message was
+		 * @example 'Where were you yesterday?' */
+		snippetText: string;
+		/** ID of last message sender */
+		senderId: UserID;
+		/** timestamp (in milliseconds) when was last message sent */
+		timestamp: number;
+	};
+	/** timestamp (in milliseconds) when the user last read a thread */
 	lastReadTimestamp: number;
 
-	emoji: ThreadEmoji;
-	/** String form of the custom color in hexadecimal form. */
-	color: ThreadColor;
-	/** Array of user IDs of the admins of this thread. Empty array if unset. */
-	adminIDs: Array<UserID>;
+	/** self-explaining... :-) */
+	isGroup: boolean;
+	/** whether a thread is marked as archived */
+	isArchived: boolean;
+	/** whether the user is subscribing a thread (actually don't know what this is) */
+	isSubscribed: boolean;
+	/** folder in which a thread is located (eg. 'INBOX') */
+	folder: string;
 
-	mentionsMuteMode: 'mentions_not_muted' | 'mentions_muted';
-	reactionsMuteMode: 'reactions_not_muted' | 'reactions_muted';
+	/** represents the thread customisation information like emoji, color & icon */
+	customisation: {
+		enabledCustomisation: boolean;
+		emoji: string;
+		outgoingBubbleColor: string;
+		imageUri: string;
+	};
 
-	// there are other properties, but they rarely appear and are not really important
+	eventReminders: any[];
+	/** if the user can't reply to a thread, this property tells the reason (otherwise, `null`) */
+	cannotReplyReason: string;
+
+	// Disabled by Facebook, may not work in the future
+	// nicknames: any[];
+
+	// TODO: implement type & logic for whether there is a voice/video call in a thread
+
+	/** timestamp (in milliseconds) until which the user wishes a thread to be muted (if not muted, `null`) */
+	muteUntil: number | null;
+	/** whether the reactions for a thread are muted */
+	reactionsMuteMode: string;
+	/** whether the mentions for a thread are muted */
+	mentionsMuteMode: string;
 }
 
 export type ThreadColor = string | null;
 export type ThreadEmoji = {
 	emoji: string;
 } | null;
-export type ThreadNickname = {
-	userid: UserID;
-	nickname: string;
-};
+// export type ThreadNickname = {
+// 	userid: UserID;
+// 	nickname: string;
+// };
 
 /** The thread history consisting of last messages.
  * Get an instance from `API.getThreadHistory()` method. */

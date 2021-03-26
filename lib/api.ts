@@ -720,10 +720,13 @@ export default class Api {
 			.then((resData: any) => {
 				if (resData.error) throw resData;
 				// This returns us an array of things. The last one is the success/failure one.
-				// @TODO What do we do in this case?
-				if (resData[resData.length - 1].error_results !== 0) throw new Error('There was an error_result');
-
-				return formatters.formatThreadGraphQLResponse(resData[0]);
+				if (resData[resData.length - 1].error_results != 0)
+					throw new Error(
+						`There was an unknown response. Contact the dev team about this (error code 935527). Info: ${JSON.stringify(
+							resData
+						)}`
+					);
+				return formatters.formatThreadInfo(resData[0]);
 			});
 	}
 

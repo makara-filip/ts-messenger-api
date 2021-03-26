@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-case-declarations */
 import { getAdminTextMessageType } from './formatting/incomingMessageFormatters';
+import { ThreadInfo } from './types/threads';
 
 export function formatMessagesGraphQLResponse(data: any) {
 	const messageThread = data.o0.data.message_thread;
@@ -529,83 +531,63 @@ function formatExtensibleAttachment(attachment: any) {
 	}
 }
 
-export function formatThreadGraphQLResponse(data: any) {
+export function formatThreadInfo(data: any): ThreadInfo {
+	// formatting GraphQL response
 	const messageThread = data.o0.data.message_thread;
-	const threadID = messageThread.thread_key.thread_fbid
-		? messageThread.thread_key.thread_fbid
-		: messageThread.thread_key.other_user_id;
-
-	// Remove me
-	const lastM = messageThread.last_message;
-	const snippetID =
-		lastM &&
-		lastM.nodes &&
-		lastM.nodes[0] &&
-		lastM.nodes[0].message_sender &&
-		lastM.nodes[0].message_sender.messaging_actor
-			? lastM.nodes[0].message_sender.messaging_actor.id
-			: null;
-	const snippetText = lastM && lastM.nodes && lastM.nodes[0] ? lastM.nodes[0].snippet : null;
-	const lastR = messageThread.last_read_receipt;
-	const lastReadTimestamp =
-		lastR && lastR.nodes && lastR.nodes[0] && lastR.nodes[0].timestamp_precise
-			? lastR.nodes[0].timestamp_precise
-			: null;
-
+	if (!messageThread)
+		throw new Error(
+			`There was an unknown response. Contact the dev team about this (error code 935528). Data: ${JSON.stringify(
+				data
+			)}`
+		);
+	const isGroup = messageThread.thread_type?.toUpperCase() == 'GROUP'; // otherwise 'ONE_TO_ONE'
 	return {
-		threadID: threadID,
+		threadId: parseInt(messageThread.thread_key.thread_fbid || messageThread.thread_key.other_user_id),
 		threadName: messageThread.name,
-		participantIDs: messageThread.all_participants.nodes.map((d: any) => d.messaging_actor.id),
+		participantIds: messageThread.all_participants?.nodes?.map((d: any) => parseInt(d.messaging_actor?.id)),
+
+		groupAdministration: isGroup
+			? {
+					approvalMode: !!parseInt(messageThread.approval_mode),
+					adminIds: messageThread.thread_admins?.map((obj: any) => parseInt(obj.id))
+					// thread_queue_metadata
+			  }
+			: null,
+
 		unreadCount: messageThread.unread_count,
 		messageCount: messageThread.messages_count,
-		timestamp: messageThread.updated_time_precise,
-		muteUntil: messageThread.mute_until,
-		isGroup: messageThread.thread_type == 'GROUP',
-		isSubscribed: messageThread.is_viewer_subscribed,
+
+		lastUpdateTimestamp: parseInt(messageThread.updated_time_precise),
+		lastMessage: {
+			snippetText: messageThread.last_message?.nodes[0]?.snippet,
+			senderId: parseInt(messageThread.last_message?.nodes[0]?.message_sender?.messaging_actor.id),
+			timestamp: parseInt(messageThread.last_message?.nodes[0]?.timestamp_precise)
+		},
+		lastReadTimestamp: parseInt(messageThread.last_read_receipt?.nodes[0].timestamp_precise),
+
+		isGroup,
 		isArchived: messageThread.has_viewer_archived,
+		isSubscribed: messageThread.is_viewer_subscribed,
 		folder: messageThread.folder,
+
+		customisation: {
+			enabledCustomisation: messageThread.customization_enabled,
+			emoji: messageThread.customization_info.emoji,
+			outgoingBubbleColor: messageThread.customization_info.outgoing_bubble_color,
+			imageUri: messageThread.image?.uri
+			// Disabled by Facebook, may not work in the future
+			// nicknames: messageThread.customization_info?.participant_customizations?.reduce((res: any, val: any) => {
+			// 	if (val.nickname) res[val.participant_id] = val.nickname;
+			// 	return res;
+			// }, {}),
+		},
+
 		cannotReplyReason: messageThread.cannot_reply_reason,
-		eventReminders: messageThread.event_reminders
-			? messageThread.event_reminders.nodes.map(formatEventReminders)
-			: null,
-		emoji: messageThread.customization_info ? messageThread.customization_info.emoji : null,
-		color:
-			messageThread.customization_info && messageThread.customization_info.outgoing_bubble_color
-				? messageThread.customization_info.outgoing_bubble_color.slice(2)
-				: null,
-		nicknames:
-			messageThread.customization_info && messageThread.customization_info.participant_customizations
-				? messageThread.customization_info.participant_customizations.reduce((res: any, val: any) => {
-						if (val.nickname) res[val.participant_id] = val.nickname;
-						return res;
-				  }, {})
-				: {},
-		adminIDs: messageThread.thread_admins,
+		eventReminders: messageThread.event_reminders?.nodes?.map(formatEventReminders),
 
-		// @Undocumented
-		topEmojis: messageThread.top_emojis,
-		reactionsMuteMode: messageThread.reactions_mute_mode.toLowerCase(),
-		mentionsMuteMode: messageThread.mentions_mute_mode.toLowerCase(),
-		isPinProtected: messageThread.is_pin_protected,
-		relatedPageThread: messageThread.related_page_thread,
-
-		// @Legacy
-		name: messageThread.name,
-		snippet: snippetText,
-		snippetSender: snippetID,
-		snippetAttachments: [],
-		serverTimestamp: messageThread.updated_time_precise,
-		imageSrc: messageThread.image ? messageThread.image.uri : null,
-		isCanonicalUser: messageThread.is_canonical_neo_user,
-		isCanonical: messageThread.thread_type != 'GROUP',
-		recipientsLoadable: true,
-		hasEmailParticipant: false,
-		readOnly: false,
-		canReply: messageThread.cannot_reply_reason == null,
-		lastMessageTimestamp: messageThread.last_message ? messageThread.last_message.timestamp_precise : null,
-		lastMessageType: 'message',
-		lastReadTimestamp: lastReadTimestamp,
-		threadType: messageThread.thread_type == 'GROUP' ? 2 : 1
+		muteUntil: parseInt(messageThread.mute_until) * 1000 || null,
+		reactionsMuteMode: messageThread.reactions_mute_mode,
+		mentionsMuteMode: messageThread.mentions_mute_mode
 	};
 }
 
