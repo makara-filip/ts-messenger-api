@@ -698,7 +698,7 @@ export function getFrom(str: string, startToken: string, endToken: string): stri
 	return lastHalf.substring(0, end);
 }
 
-export function makeParsable(html: string): string | string[] {
+export function makeParsable(html: string): string {
 	const withoutForLoop = html.replace(/for\s*\(\s*;\s*;\s*\)\s*;\s*/, '');
 
 	// (What the fuck FB, why windows style newlines?)
@@ -711,7 +711,7 @@ export function makeParsable(html: string): string | string[] {
 	// next object begins (issue #616)
 	//       rav_kr - 2018-03-19
 	const maybeMultipleObjects = withoutForLoop.split(/\}\r\n *\{/);
-	if (maybeMultipleObjects.length === 1) return maybeMultipleObjects;
+	if (maybeMultipleObjects.length === 1) return maybeMultipleObjects[0];
 
 	return '[' + maybeMultipleObjects.join('},{') + ']';
 }
@@ -788,16 +788,6 @@ export function makeDefaults(html: string, userID: string, ctx: ApiCtx): Dfs {
 			// __spin_b: siteData.__spin_b,
 			// __spin_t: siteData.__spin_t,
 		};
-
-		// @TODO this is probably not needed.
-		//         Ben - July 15th 2017
-		// if (siteData.be_key) {
-		//   newObj[siteData.be_key] = siteData.be_mode;
-		// }
-		// if (siteData.pkg_cohort_key) {
-		//   newObj[siteData.pkg_cohort_key] = siteData.pkg_cohort;
-		// }
-
 		if (!obj) return newObj;
 
 		for (const prop in obj) {
@@ -880,7 +870,7 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 
 		let res = null;
 		try {
-			res = JSON.parse(makeParsable(data.body) as string);
+			res = JSON.parse(makeParsable(data.body));
 		} catch (e) {
 			throw {
 				error: 'JSON.parse error. Check the `detail` property on this error.',
@@ -914,7 +904,7 @@ export function parseAndCheckLogin(ctx: ApiCtx, defaultFuncs: Dfs, retryCount = 
 			const arr = res.jsmods.require;
 			for (const i in arr) {
 				if (arr[i][0] === 'DTSG' && arr[i][1] === 'setToken') {
-					ctx.fb_dtsg = arr[i][3][0];
+					ctx.fb_dtsg = arr[i][3][0] as string;
 
 					// Update ttstamp since that depends on fb_dtsg
 					ctx.ttstamp = '2';

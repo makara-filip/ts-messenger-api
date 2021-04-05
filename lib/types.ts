@@ -56,7 +56,8 @@ export interface ApiCtx {
 	mqttClient?: mqtt.MqttClient;
 	lastSeqId: number;
 	syncToken: any;
-	fb_dtsg?: any;
+	fb_dtsg?: string;
+	jazoest?: string;
 	ttstamp?: any;
 }
 

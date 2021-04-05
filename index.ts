@@ -173,15 +173,18 @@ function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
 	const userIdCookies = jar.getCookies('https://www.facebook.com').filter(cookie => cookie.key === 'c_user');
 
 	if (userIdCookies.length === 0) {
-		throw {
-			error:
-				'Error retrieving userID. This can be caused by a lot of things, including getting blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify.'
-		};
+		throw new Error(
+			'Error retrieving userID. This can be caused by a lot of things, including having wrong AppState credentials or getting blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify.'
+		);
 	}
 
 	const userID = userIdCookies[0].value;
 	log.info('login', 'Logged in');
 	const clientID = ((Math.random() * 2147483648) | 0).toString(16);
+
+	const $ = cheerio.load(html);
+	const fb_dtsg = $('input[name=fb_dtsg]')?.attr('value');
+	const jazoest = $('input[name=jazoest]')?.attr('value');
 
 	// All data available to api functions
 	const ctx: ApiCtx = {
@@ -194,7 +197,9 @@ function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
 		clientMutationId: 0,
 		mqttClient: undefined,
 		lastSeqId: 0,
-		syncToken: undefined
+		syncToken: undefined,
+		fb_dtsg,
+		jazoest
 	};
 	const defaultFuncs: Dfs = utils.makeDefaults(html, userID, ctx);
 	const api = new Api(defaultFuncs, ctx);
