@@ -1,19 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-case-declarations */
-import { getAdminTextMessageType } from './formatting/incomingMessageFormatters';
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { IncomingEventType } from './types/incomingMessages';
+import { HistoryMessage, HistoryMessageType } from './types/threadHistory';
 import { ThreadInfo } from './types/threads';
+import { UserID } from './types/users';
 
-export function formatMessagesGraphQLResponse(data: any) {
+export function formatMessagesGraphQLResponse(data: any): HistoryMessage[] {
 	const messageThread = data.o0.data.message_thread;
-	const threadID = messageThread.thread_key.thread_fbid
-		? messageThread.thread_key.thread_fbid
-		: messageThread.thread_key.other_user_id;
+	if (!messageThread)
+		throw new Error(
+			`There was an unknown response. Contact the dev team about this (error code 935531). Data: ${JSON.stringify(
+				data
+			)}`
+		);
 
-	const messages = messageThread.messages.nodes.map((d: any) => {
+	return messageThread.messages.nodes.map((d: any) => {
+		// base object - additional data will be added
+		const semiformattedMessage: HistoryMessage = {
+			type: HistoryMessageType.Unknown,
+			messageId: d.message_id,
+			timestamp: parseInt(d.timestamp_precise),
+			senderId: parseInt(d.message_sender?.id),
+			isUnread: d.unread,
+			OTID: parseInt(d.offline_threading_id),
+			isSponsored: d.is_sponsored,
+			snippet: d.snippet
+		};
+
 		switch (d.__typename) {
-			case 'UserMessage':
-				// Give priority to stickers. They're seen as normal messages but we've
-				// been considering them as attachments.
+			case 'UserMessage': {
+				// Give priority to stickers. They're seen as normal messages but we consider them as attachments
 				let maybeStickerAttachment;
 				if (d.sticker && d.sticker.pack) {
 					maybeStickerAttachment = [
@@ -43,275 +59,133 @@ export function formatMessagesGraphQLResponse(data: any) {
 					];
 				}
 
-				const mentionsObj: { [key: string]: string } = {};
-				if (d.message !== null) {
-					d.message?.ranges.forEach((e: any) => {
-						mentionsObj[e.entity.id] = d.message.text.substr(e.offset, e.length);
-					});
-				}
-
-				return {
-					type: 'message',
-					attachments: maybeStickerAttachment
-						? maybeStickerAttachment
-						: d.blob_attachments && d.blob_attachments.length > 0
-						? d.blob_attachments.map(formatAttachmentsGraphQLResponse)
-						: d.extensible_attachment
-						? [formatExtensibleAttachment(d.extensible_attachment)]
-						: [],
-					body: d.message !== null ? d.message.text : '',
-					isGroup: messageThread.thread_type === 'GROUP',
-					messageID: d.message_id,
-					senderID: d.message_sender.id,
-					threadID: threadID,
-					timestamp: d.timestamp_precise,
-
-					mentions: mentionsObj,
-					isUnread: d.unread,
-
-					// New
-					messageReactions: d.message_reactions ? d.message_reactions.map(formatReactionsGraphQL) : null,
-					isSponsored: d.is_sponsored,
-					snippet: d.snippet
+				semiformattedMessage.type = HistoryMessageType.UserMessage;
+				semiformattedMessage.userMessage = {
+					attachments:
+						maybeStickerAttachment ??
+						(d.blob_attachments && d.blob_attachments.length > 0
+							? d.blob_attachments.map(formatAttachmentsGraphQLResponse)
+							: undefined) ??
+						(d.extensible_attachment ? [formatExtensibleAttachment(d.extensible_attachment)] : undefined) ??
+						[],
+					textBody: d.message?.text || undefined,
+					mentions: formatMentionsGraphQL(d.message?.text, d.message?.ranges),
+					// WHY ON EARTH FACEBOOK DOESN'T SEND REPLY INFORMATION????????
+					// TODO: add "replies not available" article in docs
+					reactions: d.message_reactions?.map(formatReactionsGraphQL)
 				};
+				break;
+			}
 			case 'ThreadNameMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					eventType: 'change_thread_name',
-					snippet: d.snippet,
-					eventData: {
-						threadName: d.thread_name
-					},
-
-					// @Legacy
-					author: d.message_sender.id,
-					logMessageType: 'log:thread-name',
-					logMessageData: { name: d.thread_name }
+				semiformattedMessage.type = HistoryMessageType.CustomisationEvent;
+				semiformattedMessage.customisationEvent = {
+					eventType: IncomingEventType.ChangeThreadName,
+					newThreadName: d.thread_name
 				};
+				break;
 			case 'ThreadImageMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					eventType: 'change_thread_image',
-					snippet: d.snippet,
-					eventData:
-						d.image_with_metadata == null
-							? {} /* removed image */
-							: {
-									/* image added */
-									threadImage: {
-										attachmentID: d.image_with_metadata.legacy_attachment_id,
-										width: d.image_with_metadata.original_dimensions.x,
-										height: d.image_with_metadata.original_dimensions.y,
-										url: d.image_with_metadata.preview.uri
-									}
-							  },
-
-					// @Legacy
-					logMessageType: 'log:thread-icon',
-					logMessageData: {
-						thread_icon: d.image_with_metadata ? d.image_with_metadata.preview.uri : null
-					}
+				semiformattedMessage.type = HistoryMessageType.CustomisationEvent;
+				semiformattedMessage.customisationEvent = {
+					eventType: IncomingEventType.ChangeThreadImage,
+					newImageInfo: d.image_with_metadata
+						? {
+								previewUri: d.image_with_metadata.preview?.uri,
+								attachmentId: parseInt(d.image_with_metadata.legacy_attachment_id),
+								originalDimensions: d.image_with_metadata.original_dimensions
+						  }
+						: null // if the old photo was removed
 				};
+				break;
 			case 'ParticipantLeftMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					eventType: 'remove_participants',
-					snippet: d.snippet,
-					eventData: {
-						// Array of IDs.
-						participantsRemoved: d.participants_removed.map((p: any) => {
-							return p.id;
-						})
-					},
-
-					// @Legacy
-					logMessageType: 'log:unsubscribe',
-					logMessageData: {
-						leftParticipantFbId: d.participants_removed.map((p: any) => {
-							return p.id;
-						})
-					}
+				semiformattedMessage.type = HistoryMessageType.AdminEvent;
+				semiformattedMessage.adminEvent = {
+					eventType: IncomingEventType.RemovedParticipant,
+					participantsRemoved: d.participants_removed?.map((pr: any) => parseInt(pr.id))
 				};
+				break;
 			case 'ParticipantsAddedMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					eventType: 'add_participants',
-					snippet: d.snippet,
-					eventData: {
-						// Array of IDs.
-						participantsAdded: d.participants_added.map((p: any) => {
-							return p.id;
-						})
-					},
-
-					// @Legacy
-					logMessageType: 'log:subscribe',
-					logMessageData: {
-						addedParticipants: d.participants_added.map((p: any) => {
-							return p.id;
-						})
-					}
+				semiformattedMessage.type = HistoryMessageType.AdminEvent;
+				semiformattedMessage.adminEvent = {
+					eventType: IncomingEventType.AddedParticipants,
+					participantsAdded: d.participants_added?.map((pr: any) => parseInt(pr.id))
 				};
-			case 'VideoCallMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					eventType: 'video_call',
-					snippet: d.snippet,
+				break;
+			// THIS STRUCTURE HASN'T BEEN UPDATED AS THE CODE ABOVE YET
+			// case 'VideoCallMessage':
+			// 	return {
+			// 		type: 'event',
+			// 		messageID: d.message_id,
+			// 		threadID: threadId,
+			// 		isGroup: messageThread.thread_type === 'GROUP',
+			// 		senderID: d.message_sender.id,
+			// 		timestamp: d.timestamp_precise,
+			// 		eventType: 'video_call',
+			// 		snippet: d.snippet,
 
-					// @Legacy
-					logMessageType: 'other'
-				};
-			case 'VoiceCallMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					eventType: 'voice_call',
-					snippet: d.snippet,
+			// 		// @Legacy
+			// 		logMessageType: 'other'
+			// 	};
+			// case 'VoiceCallMessage':
+			// 	return {
+			// 		type: 'event',
+			// 		messageID: d.message_id,
+			// 		threadID: threadId,
+			// 		isGroup: messageThread.thread_type === 'GROUP',
+			// 		senderID: d.message_sender.id,
+			// 		timestamp: d.timestamp_precise,
+			// 		eventType: 'voice_call',
+			// 		snippet: d.snippet,
 
-					// @Legacy
-					logMessageType: 'other'
-				};
+			// 		// @Legacy
+			// 		logMessageType: 'other'
+			// 	};
 			case 'GenericAdminTextMessage':
-				return {
-					type: 'event',
-					messageID: d.message_id,
-					threadID: threadID,
-					isGroup: messageThread.thread_type === 'GROUP',
-					senderID: d.message_sender.id,
-					timestamp: d.timestamp_precise,
-					snippet: d.snippet,
-					eventType: d.extensible_message_admin_text_type.toLowerCase(),
-					eventData: formatEventData(d.extensible_message_admin_text),
-
-					// @Legacy
-					logMessageType: getAdminTextMessageType(d.extensible_message_admin_text_type),
-					logMessageData: d.extensible_message_admin_text // Maybe different?
-				};
+				// GenericAdminTextMessage includes multiple events
+				switch (d.extensible_message_admin_text_type) {
+					case 'CHANGE_THREAD_THEME':
+						semiformattedMessage.type = HistoryMessageType.CustomisationEvent;
+						semiformattedMessage.customisationEvent = {
+							eventType: IncomingEventType.ChangeThreadColorTheme,
+							newThreadColor: d.extensible_message_admin_text?.theme_color
+						};
+						break;
+					case 'CHANGE_THREAD_ICON':
+						semiformattedMessage.type = HistoryMessageType.CustomisationEvent;
+						semiformattedMessage.customisationEvent = {
+							eventType: IncomingEventType.ChangeThreadEmoji,
+							newThreadEmoji: d.extensible_message_admin_text?.thread_icon
+						};
+						break;
+					case 'CHANGE_THREAD_ADMINS':
+						semiformattedMessage.type = HistoryMessageType.AdminEvent;
+						semiformattedMessage.adminEvent = {
+							eventType: IncomingEventType.ChangeAdminStatus
+							// WHY ON EARTH FACEBOOK DOESN'T SEND NEW ADMIN INFORMATION????????
+							// TODO: add "further details about new admins not available" article in docs
+						};
+						break;
+					default:
+						break; // TODO: create an unknown data collector
+				}
+				break;
 			default:
-				return { error: "Don't know about message type " + d.__typename };
+				// TODO: create an unknown data collector
+				break;
 		}
+		return semiformattedMessage;
 	});
-	return messages;
 }
 
 function formatReactionsGraphQL(reaction: any) {
 	return {
 		reaction: reaction.reaction,
-		userID: reaction.user.id
+		userId: parseInt(reaction.user.id)
 	};
 }
-
-function formatEventData(event: any) {
-	if (event == null) {
-		return {};
-	}
-
-	switch (event.__typename) {
-		case 'ThemeColorExtensibleMessageAdminText':
-			return {
-				color: event.theme_color
-			};
-		case 'ThreadNicknameExtensibleMessageAdminText':
-			return {
-				nickname: event.nickname,
-				participantID: event.participant_id
-			};
-		case 'ThreadIconExtensibleMessageAdminText':
-			return {
-				threadIcon: event.thread_icon
-			};
-		case 'InstantGameUpdateExtensibleMessageAdminText':
-			return {
-				gameID: event.game == null ? null : event.game.id,
-				update_type: event.update_type,
-				collapsed_text: event.collapsed_text,
-				expanded_text: event.expanded_text,
-				instant_game_update_data: event.instant_game_update_data
-			};
-		case 'GameScoreExtensibleMessageAdminText':
-			return {
-				game_type: event.game_type
-			};
-		case 'RtcCallLogExtensibleMessageAdminText':
-			return {
-				event: event.event,
-				is_video_call: event.is_video_call,
-				server_info_data: event.server_info_data
-			};
-		case 'GroupPollExtensibleMessageAdminText':
-			return {
-				event_type: event.event_type,
-				total_count: event.total_count,
-				question: event.question
-			};
-		case 'AcceptPendingThreadExtensibleMessageAdminText':
-			return {
-				accepter_id: event.accepter_id,
-				requester_id: event.requester_id
-			};
-		case 'ConfirmFriendRequestExtensibleMessageAdminText':
-			return {
-				friend_request_recipient: event.friend_request_recipient,
-				friend_request_sender: event.friend_request_sender
-			};
-		case 'AddContactExtensibleMessageAdminText':
-			return {
-				contact_added_id: event.contact_added_id,
-				contact_adder_id: event.contact_adder_id
-			};
-		case 'AdExtensibleMessageAdminText':
-			return {
-				ad_client_token: event.ad_client_token,
-				ad_id: event.ad_id,
-				ad_preferences_link: event.ad_preferences_link,
-				ad_properties: event.ad_properties
-			};
-		// never data
-		case 'ParticipantJoinedGroupCallExtensibleMessageAdminText':
-		case 'ThreadEphemeralTtlModeExtensibleMessageAdminText':
-		case 'StartedSharingVideoExtensibleMessageAdminText':
-		case 'LightweightEventCreateExtensibleMessageAdminText':
-		case 'LightweightEventNotifyExtensibleMessageAdminText':
-		case 'LightweightEventNotifyBeforeEventExtensibleMessageAdminText':
-		case 'LightweightEventUpdateTitleExtensibleMessageAdminText':
-		case 'LightweightEventUpdateTimeExtensibleMessageAdminText':
-		case 'LightweightEventUpdateLocationExtensibleMessageAdminText':
-		case 'LightweightEventDeleteExtensibleMessageAdminText':
-			return {};
-		default:
-			return {
-				error: "Don't know what to with event data type " + event.__typename
-			};
-	}
+function formatMentionsGraphQL(messageText: string, mentionRawData: Array<any>) {
+	const mentions: Record<UserID, string> = {};
+	mentionRawData?.forEach(e => (mentions[e.entity.id] = messageText.substr(e.offset, e.length)));
+	return mentions;
 }
 
 function formatAttachmentsGraphQLResponse(attachment: any) {

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-/* eslint-disable no-case-declarations */
 import stream from 'stream';
 import log from 'npmlog';
 import {
@@ -756,14 +754,14 @@ export default class Api {
 			.post('https://www.facebook.com/api/graphqlbatch/', this.ctx.jar, form)
 			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
 			.then((resData: any) => {
-				if (resData.error) {
-					throw resData;
-				}
-				// This returns us an array of things. The last one is the success /
-				// failure one.
-				// @TODO What do we do in this case?
+				if (resData.error) throw resData;
+				// This returns us an array of things. The last one is the success/failure one.
 				if (resData[resData.length - 1].error_results !== 0) {
-					throw new Error('well darn there was an error_result');
+					throw new Error(
+						`There was an unknown response. Contact the dev team about this (error code 935530). Info: ${JSON.stringify(
+							resData
+						)}`
+					);
 				}
 
 				return formatters.formatMessagesGraphQLResponse(resData[0]);
