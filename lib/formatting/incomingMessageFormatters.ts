@@ -247,6 +247,15 @@ function formatDeltaEvent(delta: any): IncomingEvent {
 					eventType = IncomingEventType.ChangeThreadEmoji;
 					additionalData = { newThreadEmoji: delta.untypedData };
 					break;
+				case 'change_thread_admins':
+					eventType = IncomingEventType.ChangeAdminStatus;
+					additionalData = {
+						changeAdminInfo: {
+							targetId: parseInt(delta.untypedData.TARGET_ID),
+							isAdminFromNow: delta.untypedData.ADMIN_EVENT === 'add_admin'
+						}
+					};
+					break;
 				default:
 					additionalData = delta.untypedData;
 					eventType = getAdminTextMessageType(delta.type);

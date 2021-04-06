@@ -67,13 +67,14 @@ export enum IncomingEventType {
 	ChangeThreadImage,
 	ChangeThreadName,
 	ChangeThreadEmoji,
+	ChangeAdminStatus,
 	ChangeThreadColorTheme,
 	ChangeNickname,
 	RemovedParticipant,
 	AddedParticipants
 }
 
-/** Compound type of incoming event data. 
+/** Compound type of incoming event data.
  * Includes many event types & only one property is defined at the same time. */
 export interface IncomingEventData {
 	newThreadName?: string;
@@ -90,6 +91,10 @@ export interface IncomingEventData {
 	};
 	addedParticipants?: { firstName: string; fullName: string; userId: UserID }[];
 	leftParticipantFbId?: UserID;
+	changeAdminInfo?: {
+		targetId: UserID;
+		isAdminFromNow: boolean;
+	};
 }
 
 export interface Typ extends IncomingMessageBase {
