@@ -589,103 +589,6 @@ export function formatID(id: string): string {
 	}
 }
 
-export interface FormattedMessage {
-	type: 'message';
-	senderName: string;
-	senderID: string;
-	participantNames: string[];
-	participantIDs: string[];
-	body: string;
-	threadID: string;
-	threadName: string;
-	location: string | null;
-	messageID: string;
-	attachments: any;
-	timestamp: string;
-	timestampAbsolute: string;
-	timestampRelative: string;
-	timestampDatetime: string;
-	tags: string[];
-	reactions: string[];
-	isUnread: boolean;
-	pageID?: string;
-	isGroup?: boolean;
-}
-
-function formatMessage(m: any): FormattedMessage {
-	const originalMessage = m.message ? m.message : m;
-	const obj: FormattedMessage = {
-		type: 'message',
-		senderName: originalMessage.sender_name,
-		senderID: formatID(originalMessage.sender_fbid.toString()),
-		participantNames: originalMessage.group_thread_info
-			? originalMessage.group_thread_info.participant_names
-			: [originalMessage.sender_name.split(' ')[0]],
-		participantIDs: originalMessage.group_thread_info
-			? (originalMessage.group_thread_info.participant_ids as any[]).map(v => formatID(v.toString()))
-			: [formatID(originalMessage.sender_fbid)],
-		body: originalMessage.body || '',
-		threadID: formatID((originalMessage.thread_fbid || originalMessage.other_user_fbid).toString()),
-		threadName: originalMessage.group_thread_info
-			? originalMessage.group_thread_info.name
-			: originalMessage.sender_name,
-		location: originalMessage.coordinates ? originalMessage.coordinates : null,
-		messageID: originalMessage.mid ? originalMessage.mid.toString() : originalMessage.message_id,
-		attachments: formatAttachment(
-			originalMessage.attachments,
-			originalMessage.attachmentIds,
-			originalMessage.attachment_map,
-			originalMessage.share_map
-		),
-		timestamp: originalMessage.timestamp,
-		timestampAbsolute: originalMessage.timestamp_absolute,
-		timestampRelative: originalMessage.timestamp_relative,
-		timestampDatetime: originalMessage.timestamp_datetime,
-		tags: originalMessage.tags,
-		reactions: originalMessage.reactions ? originalMessage.reactions : [],
-		isUnread: originalMessage.is_unread,
-		pageID: undefined,
-		isGroup: undefined
-	};
-
-	if (m.type === 'pages_messaging') obj.pageID = m.realtime_viewer_fbid.toString();
-	obj.isGroup = obj.participantIDs.length > 2;
-
-	return obj;
-}
-
-export function formatEvent(m: any) {
-	const originalMessage = m.message ? m.message : m;
-	let logMessageType = originalMessage.log_message_type;
-	let logMessageData;
-	if (logMessageType === 'log:generic-admin-text') {
-		logMessageData = originalMessage.log_message_data.untypedData;
-		logMessageType = getAdminTextMessageType(originalMessage.log_message_data.message_type);
-	} else {
-		logMessageData = originalMessage.log_message_data;
-	}
-
-	return Object.assign(formatMessage(originalMessage), {
-		type: 'event',
-		logMessageType: logMessageType,
-		logMessageData: logMessageData,
-		logMessageBody: originalMessage.log_message_body
-	});
-}
-
-export function formatHistoryMessage(
-	m: any
-):
-	| FormattedMessage
-	| (FormattedMessage & { type: string; logMessageType: any; logMessageData: any; logMessageBody: any }) {
-	switch (m.action_type) {
-		case 'ma-type:log-message':
-			return formatEvent(m);
-		default:
-			return formatMessage(m);
-	}
-}
-
 export function getFrom(str: string, startToken: string, endToken: string): string {
 	const start: number = str.indexOf(startToken) + startToken.length;
 	if (start < startToken.length) return '';
@@ -948,86 +851,41 @@ export function saveCookies(jar: Jar) {
 	};
 }
 
-const NUM_TO_MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const NUM_TO_DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// const NUM_TO_MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// const NUM_TO_DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function formatDate(date: Date): string {
-	let d: string | number = date.getUTCDate();
-	// TODO: maybe remove `d`
-	d = d >= 10 ? d : '0' + d;
-	let h: string | number = date.getUTCHours();
-	h = h >= 10 ? h : '0' + h;
-	let m: string | number = date.getUTCMinutes();
-	m = m >= 10 ? m : '0' + m;
-	let s: string | number = date.getUTCSeconds();
-	s = s >= 10 ? s : '0' + s;
-	return `${NUM_TO_DAY[date.getUTCDay()]}, d ${
-		NUM_TO_MONTH[date.getUTCMonth()]
-	} ${date.getUTCFullYear()} ${h}:${m}:${s} GMT`;
-}
+// export function formatDate(date: Date): string {
+// 	let d: string | number = date.getUTCDate();
+// 	// TODO: maybe remove `d`
+// 	d = d >= 10 ? d : '0' + d;
+// 	let h: string | number = date.getUTCHours();
+// 	h = h >= 10 ? h : '0' + h;
+// 	let m: string | number = date.getUTCMinutes();
+// 	m = m >= 10 ? m : '0' + m;
+// 	let s: string | number = date.getUTCSeconds();
+// 	s = s >= 10 ? s : '0' + s;
+// 	return `${NUM_TO_DAY[date.getUTCDay()]}, d ${
+// 		NUM_TO_MONTH[date.getUTCMonth()]
+// 	} ${date.getUTCFullYear()} ${h}:${m}:${s} GMT`;
+// }
 
 export function formatCookie(arr: string[], url: string): string {
 	return `${arr[0]}=${arr[1]}; Path=${arr[3]}; Domain=${url}.com`;
-}
-
-export function formatThread(data: any) {
-	return {
-		threadID: formatID(data.thread_fbid.toString()),
-		participants: data.participants.map(formatID),
-		participantIDs: data.participants.map(formatID),
-		name: data.name,
-		nicknames: data.custom_nickname,
-		snippet: data.snippet,
-		snippetAttachments: data.snippet_attachments,
-		snippetSender: formatID((data.snippet_sender || '').toString()),
-		unreadCount: data.unread_count,
-		messageCount: data.message_count,
-		imageSrc: data.image_src,
-		timestamp: data.timestamp,
-		serverTimestamp: data.server_timestamp, // what is this?
-		muteUntil: data.mute_until,
-		isCanonicalUser: data.is_canonical_user,
-		isCanonical: data.is_canonical,
-		isSubscribed: data.is_subscribed,
-		folder: data.folder,
-		isArchived: data.is_archived,
-		recipientsLoadable: data.recipients_loadable,
-		hasEmailParticipant: data.has_email_participant,
-		readOnly: data.read_only,
-		canReply: data.can_reply,
-		cannotReplyReason: data.cannot_reply_reason,
-		lastMessageTimestamp: data.last_message_timestamp,
-		lastReadTimestamp: data.last_read_timestamp,
-		lastMessageType: data.last_message_type,
-		emoji: data.custom_like_icon,
-		color: data.custom_color,
-		adminIDs: data.admin_ids,
-		threadType: data.thread_type
-	};
 }
 
 export function getType(obj: any): string {
 	return Object.prototype.toString.call(obj).slice(8, -1);
 }
 
-export function formatProxyPresence(presence: any, userID: string) {
-	if (presence.lat === undefined || presence.p === undefined) return null;
-	return {
-		type: 'presence',
-		timestamp: presence.lat * 1000,
-		userID: userID,
-		statuses: presence.p
-	};
-}
-
-export function formatPresence(presence: any, userID: string) {
-	return {
-		type: 'presence',
-		timestamp: presence.la * 1000,
-		userID: userID,
-		statuses: presence.a
-	};
-}
+// export function formatProxyPresence(presence: any, userID: string) {
+// 	if (presence.lat === undefined || presence.p === undefined) return null;
+// 	return {
+// 		type: 'presence',
+// 		timestamp: presence.lat * 1000,
+// 		userID: userID,
+// 		statuses: presence.p
+// 	};
+// }
 
 export function getAppState(jar: Jar): Cookie[] {
 	return jar
