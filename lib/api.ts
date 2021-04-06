@@ -70,6 +70,35 @@ export default class Api {
 		return utils.getAppState(this.ctx.jar);
 	}
 
+	async logout(): Promise<void> {
+		const form = { pmid: '0' };
+
+		this._defaultFuncs
+			.post(
+				'https://www.facebook.com/bluebar/modern_settings_menu/?help_type=364455653583099&show_contextual_help=1',
+				this.ctx.jar,
+				form
+			)
+			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
+			.then(async resData => {
+				const elem = resData.jsmods.instances[0][2][0].find((v: any) => v.value == 'logout');
+
+				const html = resData.jsmods.markup.find((v: any) => v[0] == elem.markup.__m)[1].__html;
+
+				// TODO: use Cheerio to find these values (might be safer)
+				const form2 = {
+					fb_dtsg: utils.getFrom(html, '"fb_dtsg" value="', '"'),
+					ref: utils.getFrom(html, '"ref" value="', '"'),
+					h: utils.getFrom(html, '"h" value="', '"')
+				};
+
+				await this._defaultFuncs
+					.post('https://www.facebook.com/logout.php', this.ctx.jar, form2)
+					.then(utils.saveCookies(this.ctx.jar));
+				log.info('logout', 'Logged out successfully.');
+			});
+	}
+
 	/** Establish the websocket connection and enables message sending and receiving.
 	 * Possible event names are `error`, `message`, `typ`, `presence` and `close`.
 	 * @returns Event emitter emitting all incoming events.
