@@ -87,11 +87,12 @@ export interface OutgoingMessage {
 	attachment?: stream.Readable | stream.Readable[];
 	/** message ID to which this new message would respond */
 	replyToMessage?: MessageID;
-	url?: string;
 	/** ID of the desired sticker */
 	sticker?: number;
-	emoji?: string;
-	emojiSize?: 'small' | 'medium' | 'large';
+	// some useless properties which shouldn't be in npm package
+	// url?: string;
+	// emoji?: string;
+	// emojiSize?: 'small' | 'medium' | 'large';
 	/** Additional information when sending a message with user mentions.
 	 * This property contains sorted "name & id" pairs. */
 	mentions?: OutgoingMessageUserMention[];

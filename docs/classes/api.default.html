@@ -3,8 +3,8 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>default | Facebook Messenger API - v0.3.2</title>
-	<meta name="description" content="Documentation for Facebook Messenger API - v0.3.2">
+	<title>default | Facebook Messenger API - v0.4.0</title>
+	<meta name="description" content="Documentation for Facebook Messenger API - v0.4.0">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
 	<script async src="../assets/js/search.js" id="search-script"></script>
@@ -23,7 +23,7 @@
 						<li class="state loading">Preparing search index...</li>
 						<li class="state failure">The search index is not available</li>
 					</ul>
-					<a href="../index.html" class="title">Facebook Messenger API - v0.3.2</a>
+					<a href="../index.html" class="title">Facebook Messenger API - v0.4.0</a>
 				</div>
 				<div class="table-cell" id="tsd-widgets">
 					<div id="tsd-filter">
@@ -52,7 +52,7 @@
 		<div class="container">
 			<ul class="tsd-breadcrumb">
 				<li>
-					<a href="../modules.html">Facebook Messenger API - v0.3.2</a>
+					<a href="../modules.html">Facebook Messenger API - v0.4.0</a>
 				</li>
 				<li>
 					<a href="../modules/api.html">api</a>
@@ -84,6 +84,7 @@
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-property tsd-parent-kind-class"><a href="api.default.html#ctx" class="tsd-kind-icon">ctx</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class"><a href="api.default.html#listener" class="tsd-kind-icon">listener</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
@@ -110,6 +111,7 @@
 							</ul>
 							<h3>Messages Methods</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="api.default.html#clearmessagereaction" class="tsd-kind-icon">clear<wbr>Message<wbr>Reaction</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="api.default.html#forwardmessage" class="tsd-kind-icon">forward<wbr>Message</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="api.default.html#markasread" class="tsd-kind-icon">mark<wbr>AsRead</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="api.default.html#sendmessage" class="tsd-kind-icon">send<wbr>Message</a></li>
@@ -119,7 +121,7 @@
 							</ul>
 							<h3>Other Methods</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-method tsd-parent-kind-class"><a href="api.default.html#clearmessagereaction" class="tsd-kind-icon">clear<wbr>Message<wbr>Reaction</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="api.default.html#logout" class="tsd-kind-icon">logout</a></li>
 							</ul>
 							<h3>Threads Methods</h3>
 							<ul class="tsd-index-list">
@@ -143,9 +145,25 @@
 					<div class="tsd-signature tsd-kind-icon">ctx<span class="tsd-signature-symbol">:</span> <a href="../interfaces/types.apictx.html" class="tsd-signature-type" data-tsd-kind="Interface">ApiCtx</a></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L28">api.ts:28</a></li>
+							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L27">api.ts:27</a></li>
 						</ul>
 					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class">
+					<a name="listener" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagOptional">Optional</span> listener</h3>
+					<div class="tsd-signature tsd-kind-icon">listener<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">EventEmitter</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L291">api.ts:291</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Event emitter emitting incoming messages. Set by <code>Api.listen()</code> method.
+							Possible event names are <code>error</code>, <code>message</code>, <code>typ</code>, <code>presence</code> and <code>close</code>.</p>
+						</div>
+					</div>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
@@ -160,7 +178,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L70">api.ts:70</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L60">api.ts:60</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -183,7 +201,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L277">api.ts:277</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L305">api.ts:305</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -206,7 +224,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L78">api.ts:78</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L97">api.ts:97</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -230,7 +248,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L268">api.ts:268</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L295">api.ts:295</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -255,7 +273,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L586">api.ts:586</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L591">api.ts:591</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -287,7 +305,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L569">api.ts:569</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L574">api.ts:574</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -322,7 +340,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L603">api.ts:603</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L608">api.ts:608</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -353,7 +371,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L642">api.ts:642</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L647">api.ts:647</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -388,7 +406,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L658">api.ts:658</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L663">api.ts:663</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -419,7 +437,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L680">api.ts:680</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L685">api.ts:685</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -457,7 +475,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L635">api.ts:635</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L640">api.ts:640</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -480,7 +498,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L620">api.ts:620</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L625">api.ts:625</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -505,6 +523,32 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Messages Methods</h2>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="clearmessagereaction" class="tsd-anchor"></a>
+					<h3>clear<wbr>Message<wbr>Reaction</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">clear<wbr>Message<wbr>Reaction<span class="tsd-signature-symbol">(</span>threadId<span class="tsd-signature-symbol">: </span><a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a>, messageId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L551">api.ts:551</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>threadId: <a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a></h5>
+								</li>
+								<li>
+									<h5>messageId: <span class="tsd-signature-type">string</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
 					<a name="forwardmessage" class="tsd-anchor"></a>
 					<h3>forward<wbr>Message</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
@@ -514,7 +558,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L421">api.ts:421</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L449">api.ts:449</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -546,7 +590,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L319">api.ts:319</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L347">api.ts:347</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -574,7 +618,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L341">api.ts:341</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L369">api.ts:369</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -611,7 +655,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L500">api.ts:500</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L528">api.ts:528</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -648,7 +692,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L470">api.ts:470</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L498">api.ts:498</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -691,7 +735,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L403">api.ts:403</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L431">api.ts:431</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -713,27 +757,18 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Other Methods</h2>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
-					<a name="clearmessagereaction" class="tsd-anchor"></a>
-					<h3>clear<wbr>Message<wbr>Reaction</h3>
+					<a name="logout" class="tsd-anchor"></a>
+					<h3>logout</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">clear<wbr>Message<wbr>Reaction<span class="tsd-signature-symbol">(</span>threadId<span class="tsd-signature-symbol">: </span><a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a>, messageId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">logout<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L522">api.ts:522</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L64">api.ts:64</a></li>
 								</ul>
 							</aside>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>threadId: <a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a></h5>
-								</li>
-								<li>
-									<h5>messageId: <span class="tsd-signature-type">string</span></h5>
-								</li>
-							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
@@ -751,7 +786,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L746">api.ts:746</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L753">api.ts:753</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -785,7 +820,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L714">api.ts:714</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L718">api.ts:718</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -810,13 +845,13 @@
 					<a name="getfriendslist" class="tsd-anchor"></a>
 					<h3>get<wbr>Friends<wbr>List</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>Friends<wbr>List<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types_users.html#friendslist" class="tsd-signature-type" data-tsd-kind="Type alias">FriendsList</a><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">get<wbr>Friends<wbr>List<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/types_users.userinfo.html" class="tsd-signature-type" data-tsd-kind="Interface">UserInfo</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L700">api.ts:700</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L705">api.ts:705</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -824,7 +859,7 @@
 									<p>Returns all available information about all user&#39;s friends as an array of user objects.</p>
 								</div>
 							</div>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types_users.html#friendslist" class="tsd-signature-type" data-tsd-kind="Type alias">FriendsList</a><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../interfaces/types_users.userinfo.html" class="tsd-signature-type" data-tsd-kind="Interface">UserInfo</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -832,13 +867,13 @@
 					<a name="getuserinfo" class="tsd-anchor"></a>
 					<h3>get<wbr>User<wbr>Info</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">get<wbr>User<wbr>Info<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types_users.html#userinfogeneraldictbyuserid" class="tsd-signature-type" data-tsd-kind="Type alias">UserInfoGeneralDictByUserId</a><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">get<wbr>User<wbr>Info<span class="tsd-signature-symbol">(</span>id<span class="tsd-signature-symbol">: </span><a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Record</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a><span class="tsd-signature-symbol">, </span><a href="../interfaces/types_users.userinfo.html" class="tsd-signature-type" data-tsd-kind="Interface">UserInfo</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/ace3363/lib/api.ts#L528">api.ts:528</a></li>
+									<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/api.ts#L557">api.ts:557</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -852,7 +887,7 @@
 									<h5>id: <a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a><span class="tsd-signature-symbol">[]</span></h5>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types_users.html#userinfogeneraldictbyuserid" class="tsd-signature-type" data-tsd-kind="Type alias">UserInfoGeneralDictByUserId</a><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Record</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types_threads.html#threadid" class="tsd-signature-type" data-tsd-kind="Type alias">ThreadID</a><span class="tsd-signature-symbol">, </span><a href="../interfaces/types_users.userinfo.html" class="tsd-signature-type" data-tsd-kind="Interface">UserInfo</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -890,6 +925,9 @@
 						<ul>
 							<li class=" tsd-kind-property tsd-parent-kind-class">
 								<a href="api.default.html#ctx" class="tsd-kind-icon">ctx</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class">
+								<a href="api.default.html#listener" class="tsd-kind-icon">listener</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="api.default.html#addusertogroup" class="tsd-kind-icon">add<wbr>User<wbr>ToGroup</a>
@@ -938,6 +976,9 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="api.default.html#listen" class="tsd-kind-icon">listen</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="api.default.html#logout" class="tsd-kind-icon">logout</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="api.default.html#markasread" class="tsd-kind-icon">mark<wbr>AsRead</a>

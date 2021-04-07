@@ -45,15 +45,6 @@ export default class Api {
 		'/pp',
 		'/webrtc_response'
 	];
-	private allowedProperties: { [index: string]: boolean } = {
-		attachment: true,
-		url: true,
-		sticker: true,
-		emoji: true,
-		emojiSize: true,
-		body: true,
-		mentions: true
-	};
 	private chatOn = true;
 	private foreground = false;
 

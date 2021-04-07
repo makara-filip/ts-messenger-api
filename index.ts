@@ -8,7 +8,7 @@ import { Response } from 'got';
 
 const defaultLogRecordSize = 100;
 
-/** Logs you into Facebook using given credentials and returns a `Api` instance.
+/** Logs you into Facebook using given credentials and returns an `Api` instance.
  *
  * Login using email & password:
  * ```typescript
@@ -22,7 +22,7 @@ const defaultLogRecordSize = 100;
  * const api = await facebookLogin({ appState: JSON.parse(fs.readFileSync('path_to_file')) }, {});
  * ```
  */
-export default async function login(loginData: LoginCredentials, options: ApiOptions): Promise<Api | undefined> {
+export default async function login(loginData: LoginCredentials, options: ApiOptions = {}): Promise<Api | undefined> {
 	const globalOptions: ApiOptions = {
 		selfListen: false,
 		listenEvents: false,

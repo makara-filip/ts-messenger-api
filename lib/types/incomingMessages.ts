@@ -18,7 +18,15 @@ export enum IncomingMessageType {
 	UserPresence
 }
 
-export type AnyIncomingMessage = unknown; // TODO: put here the union type of all following types
+/** Union type of all possible types coming from `api.listener` `EventEmitter` on event `message`. */
+export type AnyIncomingMessage =
+	| IncomingMessage
+	| IncomingMessageReply
+	| IncomingMessageUnsend
+	| IncomingMessageReaction
+	| IncomingEvent
+	| DeliveryReceipt
+	| ReadReceipt;
 
 export interface IncomingMessage extends IncomingMessageBase {
 	type: IncomingMessageType.MessageRegular;

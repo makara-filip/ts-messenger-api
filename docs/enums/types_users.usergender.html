@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>types/users | Facebook Messenger API - v0.4.0</title>
+	<title>UserGender | Facebook Messenger API - v0.4.0</title>
 	<meta name="description" content="Documentation for Facebook Messenger API - v0.4.0">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -55,10 +55,13 @@
 					<a href="../modules.html">Facebook Messenger API - v0.4.0</a>
 				</li>
 				<li>
-					<a href="types_users.html">types/users</a>
+					<a href="../modules/types_users.html">types/users</a>
+				</li>
+				<li>
+					<a href="types_users.usergender.html">UserGender</a>
 				</li>
 			</ul>
-			<h1>Module types/users</h1>
+			<h1>Enumeration UserGender</h1>
 		</div>
 	</div>
 </header>
@@ -70,42 +73,58 @@
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
-							<h3>Enumerations</h3>
+							<h3>Enumeration members</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-enum tsd-parent-kind-module"><a href="../enums/types_users.usergender.html" class="tsd-kind-icon">User<wbr>Gender</a></li>
-							</ul>
-						</section>
-						<section class="tsd-index-section ">
-							<h3>Interfaces</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-interface tsd-parent-kind-module"><a href="../interfaces/types_users.userinfo.html" class="tsd-kind-icon">User<wbr>Info</a></li>
-							</ul>
-						</section>
-						<section class="tsd-index-section ">
-							<h3>Type aliases</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types_users.html#userid" class="tsd-kind-icon">UserID</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="types_users.usergender.html#female" class="tsd-kind-icon">Female</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="types_users.usergender.html#male" class="tsd-kind-icon">Male</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="types_users.usergender.html#other" class="tsd-kind-icon">Other</a></li>
+								<li class="tsd-kind-enum-member tsd-parent-kind-enum"><a href="types_users.usergender.html#unknown" class="tsd-kind-icon">Unknown</a></li>
 							</ul>
 						</section>
 					</div>
 				</section>
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
-				<h2>Type aliases</h2>
-				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
-					<a name="userid" class="tsd-anchor"></a>
-					<h3>UserID</h3>
-					<div class="tsd-signature tsd-kind-icon">UserID<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">number</span></div>
+				<h2>Enumeration members</h2>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="female" class="tsd-anchor"></a>
+					<h3>Female</h3>
+					<div class="tsd-signature tsd-kind-icon">Female<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> = 0</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/types/users.ts#L2">types/users.ts:2</a></li>
+							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/types/users.ts#L5">types/users.ts:5</a></li>
 						</ul>
 					</aside>
-					<div class="tsd-comment tsd-typography">
-						<div class="lead">
-							<p>the identification number of a Facebook user (it can be human, app or page)</p>
-						</div>
-					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="male" class="tsd-anchor"></a>
+					<h3>Male</h3>
+					<div class="tsd-signature tsd-kind-icon">Male<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> = 1</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/types/users.ts#L6">types/users.ts:6</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="other" class="tsd-anchor"></a>
+					<h3>Other</h3>
+					<div class="tsd-signature tsd-kind-icon">Other<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> = 2</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/types/users.ts#L7">types/users.ts:7</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-enum-member tsd-parent-kind-enum">
+					<a name="unknown" class="tsd-anchor"></a>
+					<h3>Unknown</h3>
+					<div class="tsd-signature tsd-kind-icon">Unknown<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol"> = -1</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/makiprogrammer/ts-messenger-api/blob/458ff39/lib/types/users.ts#L8">types/users.ts:8</a></li>
+						</ul>
+					</aside>
 				</section>
 			</section>
 		</div>
@@ -116,32 +135,50 @@
 						<a href="../modules.html">Modules</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="api.html">api</a>
+						<a href="../modules/api.html">api</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="types.html">types</a>
+						<a href="../modules/types.html">types</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="types_incomingmessages.html">types/incoming<wbr>Messages</a>
+						<a href="../modules/types_incomingmessages.html">types/incoming<wbr>Messages</a>
 					</li>
 					<li class=" tsd-kind-module">
-						<a href="types_threads.html">types/threads</a>
+						<a href="../modules/types_threads.html">types/threads</a>
 					</li>
 					<li class="current tsd-kind-module">
-						<a href="types_users.html">types/users</a>
+						<a href="../modules/types_users.html">types/users</a>
 					</li>
 				</ul>
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-					<li class=" tsd-kind-enum tsd-parent-kind-module">
-						<a href="../enums/types_users.usergender.html" class="tsd-kind-icon">User<wbr>Gender</a>
+				</ul>
+				<ul class="current">
+					<li class="current tsd-kind-enum tsd-parent-kind-module">
+						<a href="types_users.usergender.html" class="tsd-kind-icon">User<wbr>Gender</a>
+						<ul>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="types_users.usergender.html#female" class="tsd-kind-icon">Female</a>
+							</li>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="types_users.usergender.html#male" class="tsd-kind-icon">Male</a>
+							</li>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="types_users.usergender.html#other" class="tsd-kind-icon">Other</a>
+							</li>
+							<li class=" tsd-kind-enum-member tsd-parent-kind-enum">
+								<a href="types_users.usergender.html#unknown" class="tsd-kind-icon">Unknown</a>
+							</li>
+						</ul>
 					</li>
+				</ul>
+				<ul class="after-current">
 					<li class=" tsd-kind-interface tsd-parent-kind-module">
 						<a href="../interfaces/types_users.userinfo.html" class="tsd-kind-icon">User<wbr>Info</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
-						<a href="types_users.html#userid" class="tsd-kind-icon">UserID</a>
+						<a href="../modules/types_users.html#userid" class="tsd-kind-icon">UserID</a>
 					</li>
 				</ul>
 			</nav>
