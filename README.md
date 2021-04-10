@@ -6,6 +6,13 @@ Unofficial API for Facebook Messenger. This package provides programmatic access
 
 > Since Facebook makes frequent modification to their API, please bear in mind, that this library is prone to developing bugs, that may not be immediately fixed.
 
+## Installation
+
+You can install the [package](https://www.npmjs.com/package/ts-messenger-api) with NPM:
+```
+npm i ts-messenger-api
+```
+
 ## Quick Demo
 
 ```ts
@@ -14,8 +21,8 @@ import facebookLogin from 'ts-messenger-api';
 // const facebookLogin = require('ts-messenger-api').default;
 
 const api = await facebookLogin({
-	email: 'your.email@example.com',
-	password: 'your_messenger_password'
+  email: 'your.email@example.com',
+  password: 'your_messenger_password'
 });
 
 const friends = await api.getFriendsList();
@@ -43,14 +50,14 @@ import fs from 'fs';
 api.sendMessage({ attachment: fs.createReadStream('path-to-file') }, friends[3].id);
 // or send multiple attachments in one message
 api.sendMessage(
-	{
-		attachment: [
-			fs.createReadStream('path-to-file1'),
-			fs.createReadStream('path-to-file2'),
-			fs.createReadStream('path-to-file3')
-		]
-	},
-	friends[3].id
+  {
+    attachment: [
+      fs.createReadStream('path-to-file1'),
+      fs.createReadStream('path-to-file2'),
+      fs.createReadStream('path-to-file3')
+    ]
+  },
+  friends[3].id
 );
 ```
 
@@ -58,11 +65,11 @@ api.sendMessage(
 
 ```typescript
 api.sendMessage(
-	{
-		body: 'This is my reply to your question',
-		replyToMessage: originalMessageId
-	},
-	friends[3].id
+  {
+    body: 'This is my reply to your question',
+    replyToMessage: originalMessageId
+  },
+  friends[3].id
 );
 ```
 
@@ -107,14 +114,14 @@ Now you can use the saved cookies to log in later.
 // using the saved AppState
 let api: Api | null = null;
 try {
-	api = (await login(
-		{
-			appState: JSON.parse(fs.readFileSync('./appState.json').toString())
-		},
-		{ listenEvents: true }
-	)) as Api;
+  api = (await login(
+    {
+      appState: JSON.parse(fs.readFileSync('./appState.json').toString())
+    },
+    { listenEvents: true }
+  )) as Api;
 } catch (error) {
-	// something like `console.error(error);`
+  // something like `console.error(error);`
 }
 ```
 

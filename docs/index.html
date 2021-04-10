@@ -3,8 +3,8 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>Facebook Messenger API - v0.4.0</title>
-	<meta name="description" content="Documentation for Facebook Messenger API - v0.4.0">
+	<title>Facebook Messenger API - v1.0.1</title>
+	<meta name="description" content="Documentation for Facebook Messenger API - v1.0.1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/css/main.css">
 	<script async src="assets/js/search.js" id="search-script"></script>
@@ -23,7 +23,7 @@
 						<li class="state loading">Preparing search index...</li>
 						<li class="state failure">The search index is not available</li>
 					</ul>
-					<a href="index.html" class="title">Facebook Messenger API - v0.4.0</a>
+					<a href="index.html" class="title">Facebook Messenger API - v1.0.1</a>
 				</div>
 				<div class="table-cell" id="tsd-widgets">
 					<div id="tsd-filter">
@@ -50,7 +50,7 @@
 	</div>
 	<div class="tsd-page-title">
 		<div class="container">
-			<h1>Facebook Messenger API - v0.4.0</h1>
+			<h1>Facebook Messenger API - v1.0.1</h1>
 		</div>
 	</div>
 </header>
@@ -68,6 +68,12 @@
 				<blockquote>
 					<p>Since Facebook makes frequent modification to their API, please bear in mind, that this library is prone to developing bugs, that may not be immediately fixed.</p>
 				</blockquote>
+				<a href="#installation" id="installation" style="color: inherit; text-decoration: none;">
+					<h2>Installation</h2>
+				</a>
+				<p>You can install the <a href="https://www.npmjs.com/package/ts-messenger-api">package</a> with NPM:</p>
+				<pre><code><span style="color: #001080">npm</span><span style="color: #000000"> </span><span style="color: #001080">i</span><span style="color: #000000"> </span><span style="color: #001080">ts</span><span style="color: #000000">-</span><span style="color: #001080">messenger</span><span style="color: #000000">-</span><span style="color: #001080">api</span>
+</code></pre>
 				<a href="#quick-demo" id="quick-demo" style="color: inherit; text-decoration: none;">
 					<h2>Quick Demo</h2>
 				</a>
@@ -76,8 +82,8 @@
 <span style="color: #008000">// const facebookLogin = require(&#039;ts-messenger-api&#039;).default;</span>
 
 <span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">api</span><span style="color: #000000"> = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #795E26">facebookLogin</span><span style="color: #000000">({</span>
-<span style="color: #000000">    </span><span style="color: #001080">email:</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;your.email@example.com&#039;</span><span style="color: #000000">,</span>
-<span style="color: #000000">    </span><span style="color: #001080">password:</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;your_messenger_password&#039;</span>
+<span style="color: #000000">  </span><span style="color: #001080">email:</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;your.email@example.com&#039;</span><span style="color: #000000">,</span>
+<span style="color: #000000">  </span><span style="color: #001080">password:</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;your_messenger_password&#039;</span>
 <span style="color: #000000">});</span>
 
 <span style="color: #0000FF">const</span><span style="color: #000000"> </span><span style="color: #0070C1">friends</span><span style="color: #000000"> = </span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #001080">api</span><span style="color: #000000">.</span><span style="color: #795E26">getFriendsList</span><span style="color: #000000">();</span>
@@ -102,25 +108,25 @@
 <span style="color: #001080">api</span><span style="color: #000000">.</span><span style="color: #795E26">sendMessage</span><span style="color: #000000">({ </span><span style="color: #001080">attachment:</span><span style="color: #000000"> </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file&#039;</span><span style="color: #000000">) }, </span><span style="color: #001080">friends</span><span style="color: #000000">[</span><span style="color: #098658">3</span><span style="color: #000000">].</span><span style="color: #001080">id</span><span style="color: #000000">);</span>
 <span style="color: #008000">// or send multiple attachments in one message</span>
 <span style="color: #001080">api</span><span style="color: #000000">.</span><span style="color: #795E26">sendMessage</span><span style="color: #000000">(</span>
-<span style="color: #000000">    {</span>
-<span style="color: #000000">        </span><span style="color: #001080">attachment:</span><span style="color: #000000"> [</span>
-<span style="color: #000000">            </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file1&#039;</span><span style="color: #000000">),</span>
-<span style="color: #000000">            </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file2&#039;</span><span style="color: #000000">),</span>
-<span style="color: #000000">            </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file3&#039;</span><span style="color: #000000">)</span>
-<span style="color: #000000">        ]</span>
-<span style="color: #000000">    },</span>
-<span style="color: #000000">    </span><span style="color: #001080">friends</span><span style="color: #000000">[</span><span style="color: #098658">3</span><span style="color: #000000">].</span><span style="color: #001080">id</span>
+<span style="color: #000000">  {</span>
+<span style="color: #000000">    </span><span style="color: #001080">attachment:</span><span style="color: #000000"> [</span>
+<span style="color: #000000">      </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file1&#039;</span><span style="color: #000000">),</span>
+<span style="color: #000000">      </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file2&#039;</span><span style="color: #000000">),</span>
+<span style="color: #000000">      </span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">createReadStream</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;path-to-file3&#039;</span><span style="color: #000000">)</span>
+<span style="color: #000000">    ]</span>
+<span style="color: #000000">  },</span>
+<span style="color: #000000">  </span><span style="color: #001080">friends</span><span style="color: #000000">[</span><span style="color: #098658">3</span><span style="color: #000000">].</span><span style="color: #001080">id</span>
 <span style="color: #000000">);</span>
 </code></pre>
 				<a href="#replying-to-a-message" id="replying-to-a-message" style="color: inherit; text-decoration: none;">
 					<h3>Replying to a message</h3>
 				</a>
 				<pre><code class="language-typescript"><span style="color: #001080">api</span><span style="color: #000000">.</span><span style="color: #795E26">sendMessage</span><span style="color: #000000">(</span>
-<span style="color: #000000">    {</span>
-<span style="color: #000000">        </span><span style="color: #001080">body:</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;This is my reply to your question&#039;</span><span style="color: #000000">,</span>
-<span style="color: #000000">        </span><span style="color: #001080">replyToMessage:</span><span style="color: #000000"> </span><span style="color: #001080">originalMessageId</span>
-<span style="color: #000000">    },</span>
-<span style="color: #000000">    </span><span style="color: #001080">friends</span><span style="color: #000000">[</span><span style="color: #098658">3</span><span style="color: #000000">].</span><span style="color: #001080">id</span>
+<span style="color: #000000">  {</span>
+<span style="color: #000000">    </span><span style="color: #001080">body:</span><span style="color: #000000"> </span><span style="color: #A31515">&#039;This is my reply to your question&#039;</span><span style="color: #000000">,</span>
+<span style="color: #000000">    </span><span style="color: #001080">replyToMessage:</span><span style="color: #000000"> </span><span style="color: #001080">originalMessageId</span>
+<span style="color: #000000">  },</span>
+<span style="color: #000000">  </span><span style="color: #001080">friends</span><span style="color: #000000">[</span><span style="color: #098658">3</span><span style="color: #000000">].</span><span style="color: #001080">id</span>
 <span style="color: #000000">);</span>
 </code></pre>
 				<p>Similarly, you can send a message with mentions. The types for that are in the docs.</p>
@@ -158,14 +164,14 @@
 				<pre><code class="language-typescript"><span style="color: #008000">// using the saved AppState</span>
 <span style="color: #0000FF">let</span><span style="color: #000000"> </span><span style="color: #001080">api</span><span style="color: #000000">: </span><span style="color: #267F99">Api</span><span style="color: #000000"> | </span><span style="color: #267F99">null</span><span style="color: #000000"> = </span><span style="color: #0000FF">null</span><span style="color: #000000">;</span>
 <span style="color: #AF00DB">try</span><span style="color: #000000"> {</span>
-<span style="color: #000000">    </span><span style="color: #001080">api</span><span style="color: #000000"> = (</span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #795E26">login</span><span style="color: #000000">(</span>
-<span style="color: #000000">        {</span>
-<span style="color: #000000">            </span><span style="color: #001080">appState:</span><span style="color: #000000"> </span><span style="color: #267F99">JSON</span><span style="color: #000000">.</span><span style="color: #795E26">parse</span><span style="color: #000000">(</span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">readFileSync</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;./appState.json&#039;</span><span style="color: #000000">).</span><span style="color: #795E26">toString</span><span style="color: #000000">())</span>
-<span style="color: #000000">        },</span>
-<span style="color: #000000">        { </span><span style="color: #001080">listenEvents:</span><span style="color: #000000"> </span><span style="color: #0000FF">true</span><span style="color: #000000"> }</span>
-<span style="color: #000000">    )) </span><span style="color: #AF00DB">as</span><span style="color: #000000"> </span><span style="color: #267F99">Api</span><span style="color: #000000">;</span>
+<span style="color: #000000">  </span><span style="color: #001080">api</span><span style="color: #000000"> = (</span><span style="color: #AF00DB">await</span><span style="color: #000000"> </span><span style="color: #795E26">login</span><span style="color: #000000">(</span>
+<span style="color: #000000">    {</span>
+<span style="color: #000000">      </span><span style="color: #001080">appState:</span><span style="color: #000000"> </span><span style="color: #267F99">JSON</span><span style="color: #000000">.</span><span style="color: #795E26">parse</span><span style="color: #000000">(</span><span style="color: #001080">fs</span><span style="color: #000000">.</span><span style="color: #795E26">readFileSync</span><span style="color: #000000">(</span><span style="color: #A31515">&#039;./appState.json&#039;</span><span style="color: #000000">).</span><span style="color: #795E26">toString</span><span style="color: #000000">())</span>
+<span style="color: #000000">    },</span>
+<span style="color: #000000">    { </span><span style="color: #001080">listenEvents:</span><span style="color: #000000"> </span><span style="color: #0000FF">true</span><span style="color: #000000"> }</span>
+<span style="color: #000000">  )) </span><span style="color: #AF00DB">as</span><span style="color: #000000"> </span><span style="color: #267F99">Api</span><span style="color: #000000">;</span>
 <span style="color: #000000">} </span><span style="color: #AF00DB">catch</span><span style="color: #000000"> (</span><span style="color: #001080">error</span><span style="color: #000000">) {</span>
-<span style="color: #000000">    </span><span style="color: #008000">// something like `console.error(error);`</span>
+<span style="color: #000000">  </span><span style="color: #008000">// something like `console.error(error);`</span>
 <span style="color: #000000">}</span>
 </code></pre>
 				<a href="#docs" id="docs" style="color: inherit; text-decoration: none;">
