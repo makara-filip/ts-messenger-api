@@ -22,8 +22,8 @@ describe('Fundamental API functioning', function () {
 	before(() => {
 		startTime = new Date();
 		console.log(`The tests have just started. Timestamp: ${startTime.getTime()}`);
-		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'william.json')).toString());
-		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'azihad.json')).toString());
+		appState1 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'whitehat1.json')).toString());
+		appState2 = JSON.parse(fs.readFileSync(path.join(__dirname, 'testAppStates', 'whitehat2.json')).toString());
 	});
 
 	it('should have the AppStates loaded', () => {
@@ -68,7 +68,7 @@ describe('Fundamental API functioning', function () {
 	});
 
 	it('sends a typing indicator and spots it in another account', done => {
-		// the first account() will send the indicator, the second one should spot it
+		// the first account will send the indicator, the second one should spot it
 		let indicatorWasSent = false;
 		let indicatorReceivedTyping = false;
 		let isDone = false;
