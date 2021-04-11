@@ -1,4 +1,5 @@
-import { AnyAttachment, MessageID } from '../types';
+import { MessageID } from '../types';
+import { AnyAttachment } from './attachments';
 import { ThreadID } from './threads';
 import { UserID } from './users';
 

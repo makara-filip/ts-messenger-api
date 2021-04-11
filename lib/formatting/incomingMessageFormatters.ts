@@ -13,7 +13,16 @@ import {
 	ReadReceipt
 } from '../types/incomingMessages';
 import { UserID } from '../types/users';
-import { _formatAttachment } from '../utils';
+import {
+	AnyAttachment,
+	AttachmentAnimatedImage,
+	AttachmentAudio,
+	AttachmentFile,
+	AttachmentImage,
+	AttachmentSticker,
+	AttachmentType,
+	AttachmentVideo
+} from '../types/attachments';
 
 export function parseDelta(delta: any, api: Api): AnyIncomingMessage[] {
 	if (delta.class === 'NewMessage') {
@@ -186,7 +195,7 @@ function formatDeltaMessage(delta: any): IncomingMessage {
 		// when group chat, `threadFbId` is used by FB
 		threadId: parseInt(messageMetadata.threadKey.threadFbId || messageMetadata.threadKey.otherUserFbId),
 		messageId: messageMetadata.messageId,
-		attachments: ((delta.attachments as unknown[]) || []).map(att => _formatAttachment(att)),
+		attachments: formatAttachments(delta.attachments),
 		mentions,
 		timestamp: parseInt(messageMetadata.timestamp),
 		isGroup: !!messageMetadata.threadKey.threadFbId
@@ -312,4 +321,90 @@ function formatDeltaReadReceipt(delta: any): ReadReceipt {
 		timestamp: parseInt(delta.actionTimestampMs),
 		threadId: parseInt(delta.threadKey.otherUserFbId || delta.threadKey.threadFbId)
 	};
+}
+
+// other helping functions
+function formatAttachments(rawData: any): AnyAttachment[] {
+	if (!rawData || !rawData.length || rawData.length === 0) return [];
+
+	return (rawData as any[])
+		.map(att => {
+			// we can have multiple attachment types,
+			// all defined in either `blob_attachment` (the normal attachments) or `sticker_attachment` (the crazy ones)
+
+			let attDetails = att.mercury?.blob_attachment;
+			if (attDetails) {
+				const semiformattedAttachment = {
+					// `fbid`, `id` and `hash` have the same value
+					// but we can be more confident that this will work even when FB changes something
+					attachmentId: parseInt(att.fbid ?? att.id ?? att.hash),
+					fileSize: parseInt(att.fileSize ?? att.filesize),
+					fileName: att.filename || att.fileName || '',
+					mimeType: att.mimeType || ''
+				};
+				switch (attDetails.__typename) {
+					case 'MessageImage':
+						return {
+							type: AttachmentType.Image,
+							...semiformattedAttachment,
+							previewSmall: attDetails.preview,
+							previewLarge: attDetails.large_preview,
+							thumbnailUrl: attDetails.thumbnail?.uri || '',
+							originalDimensions: attDetails.original_dimensions,
+							originalExtension: attDetails.original_extension
+						} as AttachmentImage;
+					case 'MessageVideo':
+						return {
+							type: AttachmentType.Video,
+							...semiformattedAttachment,
+							chatImage: attDetails.chat_image,
+							largeImage: attDetails.large_image,
+							inboxImage: attDetails.inbox_image,
+
+							videoType: attDetails.video_type,
+							playableUrl: attDetails.playable_url,
+							originalDimensions: attDetails.original_dimensions,
+							duration: parseInt(attDetails.playable_duration_in_ms)
+						} as AttachmentVideo;
+					case 'MessageAudio':
+						return {
+							type: AttachmentType.Audio,
+							...semiformattedAttachment,
+							playableUrl: attDetails.playable_url,
+							duration: parseInt(attDetails.playable_duration_in_ms),
+							isVoiceMail: attDetails.is_voicemail,
+							// can be either `VOICE_MESSAGE` or `FILE_ATTACHMENT`
+							audioType: attDetails.audio_type
+						} as AttachmentAudio;
+					case 'MessageFile':
+						return {
+							type: AttachmentType.File,
+							...semiformattedAttachment,
+							url: attDetails.url,
+							isMalicious: attDetails.is_malicious
+						} as AttachmentFile;
+					case 'MessageAnimatedImage':
+						return {
+							type: AttachmentType.Gif,
+							...semiformattedAttachment,
+							attributionApp: attDetails.attribution_app,
+							animatedImage: attDetails.animated_image,
+							previewImage: attDetails.preview_image,
+							originalDimensions: attDetails.original_dimensions
+						} as AttachmentAnimatedImage;
+					default:
+						break;
+				}
+			}
+
+			attDetails = att.mercury?.sticker_attachment;
+			if (attDetails) {
+				// Hey Facebook! I see you're a man of culture as well :-)
+				// there is everything useful here, no need to parse
+				// moreover, nobody really uses stickers anyway
+				return { type: AttachmentType.Sticker, info: attDetails } as AttachmentSticker;
+			}
+			// TODO: add invalid data collector
+		})
+		.filter(parsed => Boolean(parsed)) as AnyAttachment[]; // return only defined attachments
 }
