@@ -22,6 +22,7 @@ import FormData from 'form-data';
 import { ThreadHistory, ThreadID, ThreadInfo } from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 import { EventEmitter } from 'events';
+import * as nodeEmoji from 'node-emoji';
 
 export default class Api {
 	ctx: ApiCtx;
@@ -570,14 +571,18 @@ export default class Api {
 
 	/** Sets a custom emoji to a thread with `threadId`.
 	 * If you want to keep the original Facebook "like", set the `emoji` argument as an empty string.
+	 * @param emoji Can be an emoji character (e.g. `"🍕"`), emoji code, (`"pizza"`)
+	 * or in an `:emoji_code:` format (e.g. `":pizza:"`). Throws an Error on invalid emoji.
 	 * @category Customisation */
 	async changeThreadEmoji(threadId: ThreadID, emoji: string): Promise<void> {
 		this.checkForActiveState();
+		const validEmoji = nodeEmoji.find(emoji);
+		if (!validEmoji) throw Error('Value of the emoji attribute is not a valid emoji code of character!');
 
 		const wsContent = this.createWebsocketContent();
 		wsContent.payload.tasks.push({
 			label: '53',
-			payload: JSON.stringify({ thread_key: threadId, custom_emoji: emoji }),
+			payload: JSON.stringify({ thread_key: threadId, custom_emoji: validEmoji }),
 			queue_name: 'thread_custom_emoji',
 			task_id: this.websocketTaskNumber++,
 			failure_count: null

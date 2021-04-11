@@ -1,6 +1,6 @@
 {
 	"name": "ts-messenger-api",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "The unofficial API for FB Messenger communication",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -32,6 +32,7 @@
 		"form-data": "^4.0.0",
 		"got": "^11.8.1",
 		"mqtt": "^4.2.6",
+		"node-emoji": "^1.10.0",
 		"npmlog": "^4.1.2",
 		"tough-cookie": "^4.0.0",
 		"tweetnacl-sealedbox-js": "^1.2.0",
@@ -42,6 +43,7 @@
 		"@types/chai": "^4.2.14",
 		"@types/events": "^3.0.0",
 		"@types/mocha": "^8.2.0",
+		"@types/node-emoji": "^1.8.1",
 		"@types/npmlog": "^4.1.2",
 		"@types/tough-cookie": "^4.0.0",
 		"@typescript-eslint/eslint-plugin": "^4.13.0",
