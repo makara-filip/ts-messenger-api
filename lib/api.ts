@@ -582,7 +582,7 @@ export default class Api {
 		const wsContent = this.createWebsocketContent();
 		wsContent.payload.tasks.push({
 			label: '53',
-			payload: JSON.stringify({ thread_key: threadId, custom_emoji: validEmoji }),
+			payload: JSON.stringify({ thread_key: threadId, custom_emoji: validEmoji.emoji }),
 			queue_name: 'thread_custom_emoji',
 			task_id: this.websocketTaskNumber++,
 			failure_count: null
