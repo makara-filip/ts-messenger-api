@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { IncomingEventType } from './types/incomingMessages';
 import { HistoryMessage, HistoryMessageType } from './types/threadHistory';
-import { ThreadInfo } from './types/threads';
+import { ThreadInfo, ThreadInfo_IS_NOT_BEING_USED_BUT_IS_THERE_FOR_FUTURE } from './types/threads';
 import { UserID } from './types/users';
 
 export function formatMessagesGraphQLResponse(data: any): HistoryMessage[] {
@@ -405,7 +405,7 @@ function formatExtensibleAttachment(attachment: any) {
 	}
 }
 
-export function formatThreadInfo(data: any): ThreadInfo {
+export function formatThreadInfo(data: any): ThreadInfo_IS_NOT_BEING_USED_BUT_IS_THERE_FOR_FUTURE {
 	// formatting GraphQL response
 	const messageThread = data.o0.data.message_thread;
 	if (!messageThread)

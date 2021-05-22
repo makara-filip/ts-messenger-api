@@ -2,7 +2,7 @@ import { UserID } from './users';
 
 export type ThreadID = string | number;
 
-export interface ThreadInfo {
+export interface ThreadInfo_IS_NOT_BEING_USED_BUT_IS_THERE_FOR_FUTURE {
 	/** the thread identifier */
 	threadId: ThreadID;
 	/** name of a group chat (`null` if one-to-one chat) */
@@ -75,10 +75,32 @@ export type ThreadColor = string | null;
 export type ThreadEmoji = {
 	emoji: string;
 } | null;
-// export type ThreadNickname = {
-// 	userid: UserID;
-// 	nickname: string;
-// };
+
+export interface ThreadInfo {
+	/** the thread identifier */
+	threadId: ThreadID;
+	/** name of a group chat (or other person's name if one-to-one chat) */
+	threadName: string;
+
+	/** self-explaining... :-) */
+	isGroup: boolean;
+	/** timestamp (in seconds) of last update in a thread (last message sent) */
+	lastUpdated: number;
+	/** list of thread's participants and their further information */
+	participants: ThreadParticipant[];
+	/** dictionary of user's nicknames by their IDs*/
+	nicknames: Record<UserID, string>;
+	/** url to the thread image */
+	imageUrl: string;
+}
+
+export interface ThreadParticipant {
+	userId: UserID;
+	fullName: string;
+	shortName: string;
+	/** url of a person's profile picture in 40x40 px resolution */
+	profilePictureUrlSmall: string;
+}
 
 /** The thread history consisting of last messages.
  * Get an instance from `API.getThreadHistory()` method. */

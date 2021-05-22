@@ -5,7 +5,7 @@ import Jar from './lib/jar';
 import cheerio from 'cheerio';
 import Api from './lib/api';
 import { Response } from 'got';
-import { UserInfo } from './lib/types/users';
+import { UserID, UserInfo } from './lib/types/users';
 import { ThreadInfo } from './lib/types/threads';
 import { formatSingleFriend, formatSingleThread } from './lib/formatting/listFormatters';
 
@@ -207,7 +207,7 @@ function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
 
 	// find these lists from the html response
 	api.friendList = findFriendList(html);
-	api.threadList = findThreadList(html);
+	api.threadList = findThreadList(html, parseInt(userID));
 
 	return { ctx, defaultFuncs, api };
 }
@@ -384,10 +384,10 @@ function findFriendList(html: string): UserInfo[] {
 	// parse object from JSON: (we don't where a JSON object ends)
 	const parsed = utils.json5parseTillEnd(html.substring(res.index + res[0].length));
 	// parse loaded friend objects to ts-messenger-api's more user-friendly objects:
-	return parsed.map(formatSingleFriend);
+	return parsed.map(formatSingleFriend).filter(Boolean); // only the truthy ones
 }
 
-function findThreadList(html: string): ThreadInfo[] {
+function findThreadList(html: string, userId: UserID): ThreadInfo[] {
 	// Facebook is perfect. Why? It sends the thread list twice in a single html file.
 	// And what is even better than perfect? The 1st list contains 10 threads & the 2nd contains 20.
 
@@ -402,5 +402,5 @@ function findThreadList(html: string): ThreadInfo[] {
 		.map(res => utils.json5parseTillEnd(html.substring(res.index + res[0].length))) // first, parse all the JSON data
 		.reduce((prev, curr) => (prev.length > curr.length ? prev : curr)); // choose the one list with the most elements
 	// parse loaded thread objects to ts-messenger-api's more user-friendly objects:
-	return originalThreadList.map(formatSingleThread);
+	return originalThreadList.map((thread: unknown) => formatSingleThread(thread, userId));
 }

@@ -13,13 +13,18 @@ import {
 import { parseDelta } from './formatting/incomingMessageFormatters';
 import { Presence, Typ, IncomingMessageType } from './types/incomingMessages';
 import { UserID, UserInfo } from './types/users';
-import { formatUserInfoDict } from './formatting/userInfoFormatters';
+// import { formatUserInfoDict } from './formatting/userInfoFormatters';
 import * as utils from './utils';
 import * as formatters from './formatters';
 import mqtt from 'mqtt';
 import websocket from 'websocket-stream';
 import FormData from 'form-data';
-import { ThreadHistory, ThreadID, ThreadInfo } from './types/threads';
+import {
+	ThreadHistory,
+	ThreadID,
+	ThreadInfo,
+	ThreadInfo_IS_NOT_BEING_USED_BUT_IS_THERE_FOR_FUTURE
+} from './types/threads';
 import { getAttachmentID, UploadGeneralAttachmentResponse } from './types/upload-attachment-response';
 import { EventEmitter } from 'events';
 import * as nodeEmoji from 'node-emoji';
@@ -573,7 +578,8 @@ export default class Api {
 				if (resData.error) {
 					throw resData;
 				}
-				return formatUserInfoDict(resData.payload.profiles);
+				// return formatUserInfoDict(resData.payload.profiles);
+				throw new Error('Not implemented NI54');
 			});
 	}
 
@@ -716,19 +722,12 @@ export default class Api {
 	/** Returns all available information about all user's friends as an array of user objects.
 	 * @category Users */
 	async getFriendsList(): Promise<UserInfo[]> {
-		return await this._defaultFuncs
-			.postFormData('https://www.facebook.com/chat/user_info_all', this.ctx.jar, {}, { viewer: this.ctx.userID })
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then((resData: any) => {
-				if (!resData) throw { error: 'getFriendsList returned empty object.' };
-				if (resData.error) throw resData;
-				return Object.values(formatUserInfoDict(resData.payload));
-			});
+		return this.friendList;
 	}
 
 	/** Returns all available information about a thread with `threadId`.
 	 * @category Threads */
-	async getThreadInfo(threadId: ThreadID): Promise<ThreadInfo> {
+	async getThreadInfo(threadId: ThreadID): Promise<ThreadInfo_IS_NOT_BEING_USED_BUT_IS_THERE_FOR_FUTURE> {
 		const form = {
 			queries: JSON.stringify({
 				o0: {

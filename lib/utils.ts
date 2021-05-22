@@ -587,7 +587,6 @@ export function json5parseTillEnd(text: string): any {
 	try {
 		JSON5.parse(text);
 	} catch (err) {
-		console.error(err);
 		parsed = JSON5.parse(text.substr(0, err.columnNumber - 1));
 	}
 	return parsed;
@@ -608,7 +607,6 @@ export function findAllOccurrencesRegex(pattern: RegExp, text: string): RegExpEx
 	const array: RegExpExecArray[] = [];
 	// eslint-disable-next-line no-constant-condition
 	while (true) {
-		console.log('x');
 		const res = pattern.exec(text);
 		if (res) array.push(res);
 		else return array;
