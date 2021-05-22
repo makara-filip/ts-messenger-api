@@ -209,6 +209,7 @@ export default class Api {
 
 				for (const i in jsonMessage.deltas) {
 					const delta = jsonMessage.deltas[i];
+					if (!delta) continue;
 					let parsed = []; // array, because 1 delta can possibly contain multiple events
 					try {
 						// all data are formatted into ts-messenger-api ecosystem in this function
@@ -387,7 +388,7 @@ export default class Api {
 			rawTaskPayload.send_type = OutgoingMessageSendType.PlainText;
 			rawTaskPayload.text = msg.body;
 
-			if (msg.mentions)
+			if (msg.mentions?.length)
 				rawTaskPayload.mention_data = {
 					mention_ids: msg.mentions.map(m => m.id).join(),
 					mention_offsets: utils

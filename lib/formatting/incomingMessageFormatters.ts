@@ -172,8 +172,8 @@ function formatDeltaMessage(delta: any): IncomingMessage {
 
 	// mention data
 	const mentions: { name: string; id: UserID }[] = [];
-	if (delta.data && delta.data.prng) {
-		// FB stores the mention data in "data.prng", but I have no idea what it stands for :-(
+	if (delta.data?.prng) {
+		// FB stores the mention data in "data.prng", but I have no idea what the letters stand for :-(
 		let mentionRawData;
 		try {
 			mentionRawData = JSON.parse(delta.data.prng);
@@ -181,7 +181,7 @@ function formatDeltaMessage(delta: any): IncomingMessage {
 			if (mentionRawData instanceof Array)
 				for (const onePerson of mentionRawData)
 					mentions.push({
-						name: delta.body.substring(onePerson.o, onePerson.o + onePerson.l),
+						name: delta.body?.substring(onePerson.o, onePerson.o + onePerson.l),
 						id: parseInt(onePerson.i)
 					});
 		}
@@ -329,6 +329,9 @@ function formatAttachments(rawData: any): AnyAttachment[] {
 
 	return (rawData as any[])
 		.map(att => {
+			// some information can be retrieved from `mercuryJSON` attribute
+			if (att.mercuryJSON && !att.mercury) att.mercury = JSON.parse(att.mercuryJSON);
+
 			// we can have multiple attachment types,
 			// all defined in either `blob_attachment` (the normal attachments) or `sticker_attachment` (the crazy ones)
 
