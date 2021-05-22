@@ -49,6 +49,14 @@ export default class Api {
 	private chatOn = true;
 	private foreground = false;
 
+	/** List of user's Facebook friends. Contains the all-available data of every friend.
+	 * This list does not change over time and is assigned after login. */
+	friendList: UserInfo[] = [];
+
+	/** List of user's last threads (text channels). Contains the all-available data of every thread.
+	 * This list does not change over time and is assigned after login. */
+	threadList: ThreadInfo[] = [];
+
 	/** @internal */
 	constructor(defaultFuncs: Dfs, ctx: ApiCtx) {
 		this.ctx = ctx;

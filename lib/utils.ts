@@ -4,6 +4,7 @@ import stream from 'stream';
 import log from 'npmlog';
 import { Cookie } from 'tough-cookie';
 import FormData from 'form-data';
+import JSON5 from 'json5';
 
 import got, { Response } from 'got';
 const gotInstance = got.extend({
@@ -16,10 +17,9 @@ function getHeaders(options: ApiOptions): Record<string, string> {
 	return {
 		'Content-Type': 'application/x-www-form-urlencoded',
 		Referer: 'https://www.facebook.com/',
-		Origin: 'https://www.facebook.com',
-		'User-Agent':
-			options.userAgent ||
-			'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
+		Origin: 'www.facebook.com',
+		Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+		'User-Agent': options.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0'
 	};
 }
 
@@ -575,5 +575,42 @@ export function mentionsGetOffsetRecursive(text: string, searchForValues: string
 		return [index].concat(
 			mentionsGetOffsetRecursive(text.slice(newStartIndex), searchForValues.slice(1)).map(i => i + newStartIndex)
 		);
+	}
+}
+
+/** Parses JSON data in the beginning of specified text parameter.
+ * We sometimes need to parse JSON data from inside an HTML file and we don't know
+ * where the data ends (we can tell only from {} and [] parentheses & assuming there is no new-line character in JSON).
+ * @param text a string starting with the valuable information; can continue with additional characters */
+export function json5parseTillEnd(text: string): any {
+	let parsed: any;
+	try {
+		JSON5.parse(text);
+	} catch (err) {
+		console.error(err);
+		parsed = JSON5.parse(text.substr(0, err.columnNumber - 1));
+	}
+	return parsed;
+}
+
+/** Returns all occurrences of RegEx search in given string. */
+export function findAllOccurrencesRegex(pattern: RegExp, text: string): RegExpExecArray[] {
+	// since I do not sufficiently know how to perform RegEx search, I wrote this help function (Filip, 22/5/2021)
+
+	// if we don't have the "global" RegEx flag, perform the search only once
+	// (otherwise it would continue forever, I've tested that)
+	if (!pattern.flags.includes('g')) {
+		const res = pattern.exec(text);
+		return res ? [pattern.exec(text) as RegExpExecArray] : [];
+	}
+
+	// find all existing occurrences
+	const array: RegExpExecArray[] = [];
+	// eslint-disable-next-line no-constant-condition
+	while (true) {
+		console.log('x');
+		const res = pattern.exec(text);
+		if (res) array.push(res);
+		else return array;
 	}
 }

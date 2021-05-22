@@ -5,6 +5,9 @@ import Jar from './lib/jar';
 import cheerio from 'cheerio';
 import Api from './lib/api';
 import { Response } from 'got';
+import { UserInfo } from './lib/types/users';
+import { ThreadInfo } from './lib/types/threads';
+import { formatSingleFriend, formatSingleThread } from './lib/formatting/listFormatters';
 
 const defaultLogRecordSize = 100;
 
@@ -31,8 +34,7 @@ export default async function login(loginData: LoginCredentials, options: ApiOpt
 		autoMarkDelivery: true,
 		autoMarkRead: false,
 		logRecordSize: defaultLogRecordSize,
-		userAgent:
-			'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
+		userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0'
 	};
 	setOptions(globalOptions, options);
 
@@ -105,7 +107,7 @@ async function loginHelper(credentials: LoginCredentials, globalOptions: ApiOpti
 		// Open the main page, then we login with the given credentials and finally
 		// load the main page again (it'll give us some IDs that we need)
 		mainPromise = utils
-			.get('https://m.facebook.com/', null, null, globalOptions)
+			.get('https://www.facebook.com/', null, null, globalOptions)
 			.then(utils.saveCookies(jar))
 			.then(makeLogin(jar, credentials.email, credentials.password, globalOptions));
 	} else throw new Error('Argument error: you must specify AppState or email-password credentials');
@@ -171,7 +173,6 @@ async function loginHelper(credentials: LoginCredentials, globalOptions: ApiOpti
 
 function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
 	const userIdCookies = jar.getCookies('https://www.facebook.com').filter(cookie => cookie.key === 'c_user');
-
 	if (userIdCookies.length === 0) {
 		throw new Error(
 			'Error retrieving userID. This can be caused by a lot of things, including having wrong AppState credentials or getting blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify.'
@@ -203,6 +204,11 @@ function buildAPI(globalOptions: ApiOptions, html: string, jar: Jar) {
 	};
 	const defaultFuncs: Dfs = utils.makeDefaults(html, userID, ctx);
 	const api = new Api(defaultFuncs, ctx);
+
+	// find these lists from the html response
+	api.friendList = findFriendList(html);
+	api.threadList = findThreadList(html);
+
 	return { ctx, defaultFuncs, api };
 }
 
@@ -364,4 +370,37 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 			return utils.get('https://www.facebook.com/', jar, null, loginOptions).then(utils.saveCookies(jar));
 		});
 	};
+}
+
+/** Finds & parses a friends list from a whole HTML response. */
+function findFriendList(html: string): UserInfo[] {
+	// search pattern for friend list
+	const pattern = /"?result"?:\s*\{\s*"?data"?:\s*\{\s*"?viewer"?:\s*\{\s*"?bootstrap_keywords"?:\s*\{\s*"?edges"?:\s*/;
+	const res = pattern.exec(html);
+	if (!res) {
+		log.warn('login', 'Failed to load a friend list. Please contact the dev team about this (error code L-09)');
+		return [];
+	}
+	// parse object from JSON: (we don't where a JSON object ends)
+	const parsed = utils.json5parseTillEnd(html.substring(res.index + res[0].length));
+	// parse loaded friend objects to ts-messenger-api's more user-friendly objects:
+	return parsed.map(formatSingleFriend);
+}
+
+function findThreadList(html: string): ThreadInfo[] {
+	// Facebook is perfect. Why? It sends the thread list twice in a single html file.
+	// And what is even better than perfect? The 1st list contains 10 threads & the 2nd contains 20.
+
+	// search pattern for thread list
+	const pattern = /"?message_threads"?:\s*\{\s*"?edges"?:\s*/g;
+	const results = utils.findAllOccurrencesRegex(pattern, html);
+	if (!results.length) {
+		log.warn('login', 'Failed to load a thread list. Please contact the dev team about this (error code L-10)');
+		return [];
+	}
+	const originalThreadList = results
+		.map(res => utils.json5parseTillEnd(html.substring(res.index + res[0].length))) // first, parse all the JSON data
+		.reduce((prev, curr) => (prev.length > curr.length ? prev : curr)); // choose the one list with the most elements
+	// parse loaded thread objects to ts-messenger-api's more user-friendly objects:
+	return originalThreadList.map(formatSingleThread);
 }
