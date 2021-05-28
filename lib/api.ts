@@ -542,6 +542,7 @@ export default class Api {
 	async sendMessageReaction(threadId: ThreadID, messageId: MessageID, reaction: string): Promise<void> {
 		this.checkForActiveState();
 		if (!(threadId && messageId && reaction))
+			// TODO: fix this - reaction can be an empty string (when clearing previous reaction)
 			throw new Error('Invalid input to sendMessageReaction method. Got undefined arguments.');
 
 		const wsContent = this.createWebsocketContent();
@@ -567,20 +568,18 @@ export default class Api {
 	}
 
 	/** Returns all available information about one or more users by their FB id.
+	 * WARNING: Currently this method works only to friends.
 	 * @category Users */
-	async getUserInfo(id: UserID[]): Promise<Record<UserID, UserInfo>> {
-		const form: { [index: string]: UserID } = {};
-		id.forEach((value, index) => (form['ids[' + index + ']'] = value));
-		return await this._defaultFuncs
-			.post('https://www.facebook.com/chat/user_info/', this.ctx.jar, form)
-			.then(utils.parseAndCheckLogin(this.ctx, this._defaultFuncs))
-			.then(resData => {
-				if (resData.error) {
-					throw resData;
-				}
-				// return formatUserInfoDict(resData.payload.profiles);
-				throw new Error('Not implemented NI54');
-			});
+	// TODO extend this to also non-friends and update this docs above
+	getUserInfo(id: UserID | UserID[]): Record<UserID, UserInfo> {
+		if (!(id instanceof Array)) id = [id];
+
+		const info: Record<UserID, UserInfo> = {};
+		id.forEach(singleId => {
+			const friend = this.friendList.find(user => user.userId == singleId);
+			if (friend) info[singleId] = friend;
+		});
+		return info;
 	}
 
 	/** Sets a custom emoji to a thread with `threadId`.
@@ -607,6 +606,7 @@ export default class Api {
 	/** Sets a custom colour theme to a thread with `threadId`.
 	 * ⚠ Warning: `threadId` parameter will change to enum soon
 	 * @category Customisation */
+	// TODO: fix this docs - threadId => themeId
 	async changeThreadColorTheme(threadId: ThreadID, themeId: number): Promise<void> {
 		// TODO: add an enum for all theme IDs
 		this.checkForActiveState();
@@ -727,6 +727,7 @@ export default class Api {
 
 	/** Returns all available information about a thread with `threadId`.
 	 * @category Threads */
+	// TODO: fix and re-write this whole method
 	async getThreadInfo(threadId: ThreadID): Promise<ThreadInfo_IS_NOT_BEING_USED_BUT_IS_THERE_FOR_FUTURE> {
 		const form = {
 			queries: JSON.stringify({
