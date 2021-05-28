@@ -144,28 +144,6 @@ async function loginHelper(credentials: LoginCredentials, globalOptions: ApiOpti
 		);
 	});
 
-	// given a pageID we log in as a page
-	if (globalOptions.pageID) {
-		mainPromise = mainPromise
-			.then(async () => {
-				return await utils.get(
-					'https://www.facebook.com/' + ctx.globalOptions.pageID + '/messages/?section=messages&subsection=inbox',
-					ctx.jar,
-					null,
-					globalOptions
-				);
-			})
-			.then(async (resData: Response<string>) => {
-				let url = utils
-					.getFrom(resData.body, 'window.location.replace("https:\\/\\/www.facebook.com\\', '");')
-					.split('\\')
-					.join('');
-				url = url.substring(0, url.length - 1);
-
-				return await utils.get('https://www.facebook.com' + url, ctx.jar, null, globalOptions);
-			});
-	}
-
 	await mainPromise;
 	log.info('login', 'Done logging in.');
 	return api;
@@ -220,11 +198,9 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 
 		const jazoest = $('input[name=jazoest]').attr('value');
 		const lsd = $('input[name=lsd]').attr('value');
-		const publicKeyDataString = utils.getFrom(html, 'pubKeyData:', '}') + '}';
-		const publicKeyData = {
-			publicKey: utils.getFrom(publicKeyDataString, 'publicKey:"', '"'),
-			keyId: utils.getFrom(publicKeyDataString, 'keyId:', '}')
-		};
+		const publicKeyData = utils.json5parseTillEnd(
+			utils.getSubstringRegexTillEnd(html, /\{\s*"?pubKey(Data)?"?:\s*\{\s*"?publicKey?":/)
+		);
 		// in newer versions of Facebook, encrypted password is being used
 		// (even Instagram uses the same technique to send password during login)
 
@@ -237,7 +213,7 @@ function makeLogin(jar: Jar, email: string, password: string, loginOptions: ApiO
 			next: '',
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
 			encpass: `#PWD_BROWSER:5:${currentTime}:${await require('./lib/passwordHasher.js')(
-				publicKeyData,
+				publicKeyData.pubKey || publicKeyData.pubKeyData,
 				currentTime,
 				password
 			)}`

@@ -277,6 +277,12 @@ export function getFrom(str: string, startToken: string, endToken: string): stri
 	return lastHalf.substring(0, end);
 }
 
+export function getSubstringRegexTillEnd(sourceText: string, startToken: RegExp): string {
+	const beggining = startToken.exec(sourceText);
+	if (!beggining) return '';
+	return sourceText.substring(beggining.index);
+}
+
 export function makeParsable(html: string): string {
 	const withoutForLoop = html.replace(/for\s*\(\s*;\s*;\s*\)\s*;\s*/, '');
 
