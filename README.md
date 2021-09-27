@@ -1,4 +1,4 @@
-# ts-messenger-api
+# ts-messenger-api (unmaintained!)
 
 Unofficial API for Facebook Messenger. This package provides programmatic access to Facebook Messenger activity like sending and receiving messages on behalf of actual user.
 
